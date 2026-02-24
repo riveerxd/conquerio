@@ -1,0 +1,5 @@
+Jenda - Backend
+Sebastian - Frontend
+Prokop - Unit Testování a Blackbox Testování
+Štěpán - Backend
+Hrehor - Design a .. 
