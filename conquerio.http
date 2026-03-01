@@ -1,6 +1,33 @@
 @conquerio_HostAddress = http://localhost:5272
 
-GET {{conquerio_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1. Register a new user
+POST {{conquerio_HostAddress}}/api/auth/register
+Content-Type: application/json
 
-###
+{
+  "username": "testplayer",
+  "email": "testplayer@example.com",
+  "password": "password123"
+}
+
+### 2. Login — copy the returned token into @token below
+POST {{conquerio_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "testplayer@example.com",
+  "password": "password123"
+}
+
+### -- Paste your JWT token from the login response here --
+@token =
+
+### 3. Get current player profile (requires token)
+GET {{conquerio_HostAddress}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### 4. Get leaderboard
+GET {{conquerio_HostAddress}}/api/leaderboard
+
+### 5. Get player stats by id
+GET {{conquerio_HostAddress}}/api/stats/testplayer
