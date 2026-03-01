@@ -1,0 +1,6 @@
+@conquerio_HostAddress = http://localhost:5272
+
+GET {{conquerio_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
