@@ -1,4 +1,4 @@
-@conquerio_HostAddress = http://localhost:5272
+@conquerio_HostAddress = https://localhost:7037
 
 ### 1. Register a new user
 POST {{conquerio_HostAddress}}/api/auth/register
