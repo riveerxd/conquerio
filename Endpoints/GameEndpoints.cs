@@ -9,7 +9,7 @@ public static class GameEndpoints
             Results.Ok("Not implemented yet"));
 
         // GET /api/stats/{id}
-        app.MapGet("/api/stats/{id}", (string _) =>
+        app.MapGet("/api/stats/{id}", (string id) =>
             Results.Ok("Not implemented yet"));
     }
 }
