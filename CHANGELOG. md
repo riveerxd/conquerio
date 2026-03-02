@@ -1,0 +1,5 @@
+2026-1-3
+Štěpán Végh
++ Created API endpoints 
++ Implemented login and register logic
++ Created DB schema and entities. 
