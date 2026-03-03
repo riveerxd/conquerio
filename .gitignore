@@ -1,3 +1,18 @@
-﻿/obj/
-/bin/
-/conquerio.db
+# .NET
+**/obj/
+**/bin/
+*.db
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo

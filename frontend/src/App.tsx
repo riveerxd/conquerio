@@ -18,7 +18,6 @@ export default function App() {
     resize();
     window.addEventListener("resize", resize);
 
-    // Placeholder render
     ctx.fillStyle = "#111";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#fff";
