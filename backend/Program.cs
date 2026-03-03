@@ -1,6 +1,7 @@
 using System.Text;
 using conquerio.Data;
 using conquerio.Endpoints;
+using conquerio.Game;
 using conquerio.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -48,6 +49,10 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
+
+// Game services
+builder.Services.AddSingleton<GameRoomManager>();
+builder.Services.AddHostedService<GameTickHostedService>();
 
 var app = builder.Build();
 
