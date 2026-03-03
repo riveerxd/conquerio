@@ -41,7 +41,7 @@ public static class AuthEndpoints
             UserManager<AppUser> userManager,
             IConfiguration config) =>
         {
-            var user = await userManager.FindByEmailAsync(request.Email);
+            var user = await userManager.FindByNameAsync(request.Username);
             if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
                 return Results.Unauthorized();
 
