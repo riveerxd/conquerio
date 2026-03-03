@@ -38,5 +38,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/conquerio/frontend
+            rm -rf node_modules
             npm install
             npm run build
