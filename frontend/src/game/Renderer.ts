@@ -22,6 +22,7 @@ export class Renderer {
     this.drawGridLines(state, width, height);
     this.drawTrails(interpolatedPlayers, width, height);
     this.drawPlayers(interpolatedPlayers, state.myPlayerId, width, height);
+    this.drawMinimap(state, interpolatedPlayers, width, height);
   }
 
   private drawGrid(state: GameState, canvasW: number, canvasH: number) {
@@ -105,6 +106,50 @@ export class Renderer {
       this.ctx.textAlign = "center";
       const label = p.id === myId ? "you" : p.id.slice(0, 6);
       this.ctx.fillText(label, sx + cs / 2, sy - 4);
+    }
+  }
+
+  private drawMinimap(state: GameState, players: Player[], canvasW: number, canvasH: number) {
+    const ctx = this.ctx;
+    const size = 150;
+    const padding = 12;
+    const mx = canvasW - size - padding;
+    const my = padding;
+
+    // bg
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(mx, my, size, size);
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx, my, size, size);
+
+    const scaleX = size / state.gridWidth;
+    const scaleY = size / state.gridHeight;
+
+    // territory
+    for (let y = 0; y < state.gridHeight; y++) {
+      for (let x = 0; x < state.gridWidth; x++) {
+        const c = state.grid[y * state.gridWidth + x];
+        if (c === 0) continue;
+        ctx.fillStyle = getColor(c);
+        ctx.fillRect(
+          mx + x * scaleX,
+          my + y * scaleY,
+          Math.ceil(scaleX),
+          Math.ceil(scaleY)
+        );
+      }
+    }
+
+    // players as dots
+    for (const p of players) {
+      if (!p.alive) continue;
+      const dotX = mx + p.x * scaleX;
+      const dotY = my + p.y * scaleY;
+      const isMe = p.id === state.myPlayerId;
+
+      ctx.fillStyle = isMe ? "#fff" : getColor(p.colorId);
+      ctx.fillRect(dotX - 2, dotY - 2, isMe ? 5 : 3, isMe ? 5 : 3);
     }
   }
 }
