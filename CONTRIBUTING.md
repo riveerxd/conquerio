@@ -44,6 +44,30 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - Backend API: http://localhost:8080
 - MySQL: localhost:3306
 
+## Database migrations
+
+We use EF Core migrations to manage the database schema. Migrations are applied automatically when the backend starts.
+
+**If you change a model** (anything in `backend/Models/` or `AppDbContext`), you need to generate a new migration:
+
+```
+cd backend
+dotnet ef migrations add <DescriptiveName>
+```
+
+This creates files in `backend/Migrations/`. Commit them with your other changes.
+
+**Never edit migration files by hand** unless you know exactly what you're doing.
+
+**Never call `EnsureCreated()`** — it conflicts with the migration system.
+
+To reset your local DB and reapply all migrations from scratch:
+
+```
+docker compose down -v
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
 ## Project structure
 
 ```
@@ -53,6 +77,7 @@ backend/                  # ASP.NET Core 9
     Messages/             # WebSocket message types
   Models/                 # Database entities
   Data/                   # EF Core context
+  Migrations/             # EF Core migrations (auto-generated)
 
 frontend/                 # React + Vite + TypeScript
   src/
