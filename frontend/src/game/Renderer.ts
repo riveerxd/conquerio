@@ -109,7 +109,7 @@ export class Renderer {
     }
   }
 
-  private drawMinimap(state: GameState, players: Player[], canvasW: number, canvasH: number) {
+  private drawMinimap(state: GameState, players: Player[], canvasW: number, _canvasH: number) {
     const ctx = this.ctx;
     const size = 150;
     const padding = 12;

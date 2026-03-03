@@ -37,7 +37,7 @@ export class NetworkClient {
     this.ws?.send(JSON.stringify({ type: "input", dir }));
   }
 
-  onDeath(cb: DeathCallback) {
+  onDeath(cb: (msg: { killedBy: string | null; reason: string }) => void) {
     this.onDeathCb = cb;
   }
 
