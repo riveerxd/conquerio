@@ -74,5 +74,6 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapGameEndpoints();
 app.MapWebSocketEndpoints();
+app.MapHealthEndpoints();
 
 app.Run();
