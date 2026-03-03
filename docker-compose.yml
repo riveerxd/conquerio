@@ -24,21 +24,10 @@ services:
       - "8080:8080"
     environment:
       ConnectionStrings__DefaultConnection: "Server=db;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD}"
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Production
     depends_on:
       db:
         condition: service_healthy
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npx vite --host 0.0.0.0
-    depends_on:
-      - backend
 
 volumes:
   mysql_data:
