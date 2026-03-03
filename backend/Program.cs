@@ -9,9 +9,10 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// EF Core + SQLite
+// EF Core + MySQL
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 // Identity Core
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
@@ -54,13 +55,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    db.Database.EnsureCreated();
 }
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
-app.UseHttpsRedirection();
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
