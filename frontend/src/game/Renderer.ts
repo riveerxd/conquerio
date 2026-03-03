@@ -1,0 +1,110 @@
+import { Camera } from "./Camera";
+import { getColor, getTerritoryColor, getTrailColor } from "./colors";
+import type { Player, GameState } from "./types";
+
+export class Renderer {
+  private ctx: CanvasRenderingContext2D;
+  private camera: Camera;
+
+  constructor(private canvas: HTMLCanvasElement, camera: Camera) {
+    this.ctx = canvas.getContext("2d")!;
+    this.camera = camera;
+  }
+
+  render(state: GameState, interpolatedPlayers: Player[]) {
+    const { width, height } = this.canvas;
+    const ctx = this.ctx;
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, width, height);
+
+    this.drawGrid(state, width, height);
+    this.drawGridLines(state, width, height);
+    this.drawTrails(interpolatedPlayers, width, height);
+    this.drawPlayers(interpolatedPlayers, state.myPlayerId, width, height);
+  }
+
+  private drawGrid(state: GameState, canvasW: number, canvasH: number) {
+    const bounds = this.camera.getVisibleBounds(canvasW, canvasH);
+    const cs = this.camera.cellSize;
+
+    for (let y = Math.max(0, bounds.minY); y < Math.min(state.gridHeight, bounds.maxY); y++) {
+      for (let x = Math.max(0, bounds.minX); x < Math.min(state.gridWidth, bounds.maxX); x++) {
+        const colorId = state.grid[y * state.gridWidth + x];
+        if (colorId === 0) continue;
+
+        const { sx, sy } = this.camera.worldToScreen(x, y, canvasW, canvasH);
+        this.ctx.fillStyle = getTerritoryColor(colorId);
+        this.ctx.fillRect(sx, sy, cs, cs);
+      }
+    }
+  }
+
+  private drawGridLines(state: GameState, canvasW: number, canvasH: number) {
+    const bounds = this.camera.getVisibleBounds(canvasW, canvasH);
+    const cs = this.camera.cellSize;
+    const ctx = this.ctx;
+
+    const topLeft = this.camera.worldToScreen(0, 0, canvasW, canvasH);
+    const botRight = this.camera.worldToScreen(state.gridWidth, state.gridHeight, canvasW, canvasH);
+
+    // border
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(topLeft.sx, topLeft.sy, botRight.sx - topLeft.sx, botRight.sy - topLeft.sy);
+
+    if (cs >= 15) {
+      ctx.strokeStyle = "#1a1a1a";
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+
+      for (let x = Math.max(0, bounds.minX); x <= Math.min(state.gridWidth, bounds.maxX); x++) {
+        const { sx } = this.camera.worldToScreen(x, 0, canvasW, canvasH);
+        ctx.moveTo(sx, topLeft.sy);
+        ctx.lineTo(sx, botRight.sy);
+      }
+
+      for (let y = Math.max(0, bounds.minY); y <= Math.min(state.gridHeight, bounds.maxY); y++) {
+        const { sy } = this.camera.worldToScreen(0, y, canvasW, canvasH);
+        ctx.moveTo(topLeft.sx, sy);
+        ctx.lineTo(botRight.sx, sy);
+      }
+
+      ctx.stroke();
+    }
+  }
+
+  private drawTrails(players: Player[], canvasW: number, canvasH: number) {
+    const cs = this.camera.cellSize;
+
+    for (const p of players) {
+      if (p.trail.length === 0) continue;
+
+      this.ctx.fillStyle = getTrailColor(p.colorId);
+      for (const [tx, ty] of p.trail) {
+        const { sx, sy } = this.camera.worldToScreen(tx, ty, canvasW, canvasH);
+        this.ctx.fillRect(sx, sy, cs, cs);
+      }
+    }
+  }
+
+  private drawPlayers(players: Player[], myId: string, canvasW: number, canvasH: number) {
+    const cs = this.camera.cellSize;
+
+    for (const p of players) {
+      if (!p.alive) continue;
+
+      const { sx, sy } = this.camera.worldToScreen(p.x, p.y, canvasW, canvasH);
+
+      this.ctx.fillStyle = getColor(p.colorId);
+      this.ctx.fillRect(sx + 1, sy + 1, cs - 2, cs - 2);
+
+      // TODO: show actual username instead of id
+      this.ctx.fillStyle = "#fff";
+      this.ctx.font = "12px monospace";
+      this.ctx.textAlign = "center";
+      const label = p.id === myId ? "you" : p.id.slice(0, 6);
+      this.ctx.fillText(label, sx + cs / 2, sy - 4);
+    }
+  }
+}
