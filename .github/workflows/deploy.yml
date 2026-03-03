@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [production]
 
 jobs:
   deploy:
@@ -17,5 +17,6 @@ jobs:
           script: |
             cd ~/conquerio || git clone git@github.com:riveerxd/conquerio.git ~/conquerio
             cd ~/conquerio
-            git pull origin main
+            git checkout production
+            git pull origin production
             docker compose up --build -d
