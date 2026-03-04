@@ -38,17 +38,8 @@ public class GameRoom
         var spawnX = _rng.Next(20, GridWidth - 20);
         var spawnY = _rng.Next(20, GridHeight - 20);
 
-        var player = new PlayerState
-        {
-            PlayerId = playerId,
-            Username = username,
-            X = spawnX,
-            Y = spawnY,
-            ColorId = colorId,
-            Socket = socket
-        };
-
-        // claim 3x3 spawn territory
+        // claim 3x3 spawn territory (spawn coords are >=20 from edges, so all 9 cells fit)
+        int spawnCells = 0;
         for (int ox = -1; ox <= 1; ox++)
         {
             for (int oy = -1; oy <= 1; oy++)
@@ -59,9 +50,21 @@ public class GameRoom
                 {
                     Grid[tx, ty] = colorId;
                     _gridDiff.Add(new GridCell { X = tx, Y = ty, C = colorId });
+                    spawnCells++;
                 }
             }
         }
+
+        var player = new PlayerState
+        {
+            PlayerId = playerId,
+            Username = username,
+            X = spawnX,
+            Y = spawnY,
+            ColorId = colorId,
+            Socket = socket,
+            OwnedCells = spawnCells
+        };
 
         Players[playerId] = player;
         return player;
@@ -114,7 +117,7 @@ public class GameRoom
             var killer = Players.Values.FirstOrDefault(other =>
                 other.PlayerId != p.PlayerId &&
                 other.IsAlive &&
-                CollisionDetector.HitsTrail(newX, newY, [other], p.PlayerId));
+                CollisionDetector.HitsTrail(newX, newY, other));
 
             if (killer != null)
             {
@@ -217,23 +220,21 @@ public class GameRoom
     private void ClaimTerritory(PlayerState player)
     {
         var cellsToClaim = TerritoryResolver.Resolve(Grid, player);
+        int newlyOwned = 0;
         foreach (var (x, y) in cellsToClaim)
         {
             if (Grid[x, y] != player.ColorId)
             {
                 Grid[x, y] = player.ColorId;
                 _gridDiff.Add(new GridCell { X = x, Y = y, C = player.ColorId });
+                newlyOwned++;
             }
         }
         player.Trail.Clear();
 
-        // update best territory percentage for this run
-        int owned = 0;
-        for (var y = 0; y < GridHeight; y++)
-            for (var x = 0; x < GridWidth; x++)
-                if (Grid[x, y] == player.ColorId) owned++;
-
-        var pct = owned * 100f / TotalCells;
+        // update best territory percentage incrementally
+        player.OwnedCells += newlyOwned;
+        var pct = player.OwnedCells * 100f / TotalCells;
         if (pct > player.MaxTerritoryPct)
             player.MaxTerritoryPct = pct;
     }
