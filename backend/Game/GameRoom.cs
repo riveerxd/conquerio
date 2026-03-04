@@ -10,10 +10,14 @@ public class GameRoom
     public int GridHeight { get; } = 200;
     public int TickRate { get; } = 20;
     public int MaxPlayers { get; } = 20;
+    private int TotalCells => GridWidth * GridHeight;
 
     public byte[,] Grid { get; }
     public ConcurrentDictionary<string, PlayerState> Players { get; } = new();
     public ConcurrentQueue<PlayerInput> InputQueue { get; } = new();
+
+    /// <summary>Fired on the tick thread whenever a player is killed.</summary>
+    public event Action<PlayerDeathEvent>? PlayerDied;
 
     private long _tick;
     private byte _nextColorId = 1;
@@ -94,11 +98,30 @@ public class GameRoom
             newX = Math.Clamp(newX, 0, GridWidth - 1);
             newY = Math.Clamp(newY, 0, GridHeight - 1);
 
-            bool wasOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, p.X, p.Y, p.ColorId);
             bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, newX, newY, p.ColorId);
 
             p.X = newX;
             p.Y = newY;
+
+            // --- collision: self trail ---
+            if (CollisionDetector.HitsSelfTrail(newX, newY, p))
+            {
+                KillPlayer(p, killerId: null, "self");
+                continue;
+            }
+
+            // --- collision: another player's trail ---
+            var killer = Players.Values.FirstOrDefault(other =>
+                other.PlayerId != p.PlayerId &&
+                other.IsAlive &&
+                CollisionDetector.HitsTrail(newX, newY, [other], p.PlayerId));
+
+            if (killer != null)
+            {
+                killer.Kills++;
+                KillPlayer(p, killer.PlayerId, "trail");
+                continue;
+            }
 
             if (isOnTerritory && p.Trail.Count > 0)
             {
@@ -174,6 +197,23 @@ public class GameRoom
         (a == Direction.Left && b == Direction.Right) ||
         (a == Direction.Right && b == Direction.Left);
 
+    private void KillPlayer(PlayerState player, string? killerId, string cause)
+    {
+        player.IsAlive = false;
+        player.Trail.Clear();
+
+        var evt = new PlayerDeathEvent(
+            VictimId: player.PlayerId,
+            KillerId: killerId,
+            DeathCause: cause,
+            Kills: player.Kills,
+            MaxTerritoryPct: player.MaxTerritoryPct,
+            StartedAt: player.StartedAt
+        );
+
+        PlayerDied?.Invoke(evt);
+    }
+
     private void ClaimTerritory(PlayerState player)
     {
         var cellsToClaim = TerritoryResolver.Resolve(Grid, player);
@@ -186,5 +226,15 @@ public class GameRoom
             }
         }
         player.Trail.Clear();
+
+        // update best territory percentage for this run
+        int owned = 0;
+        for (var y = 0; y < GridHeight; y++)
+            for (var x = 0; x < GridWidth; x++)
+                if (Grid[x, y] == player.ColorId) owned++;
+
+        var pct = owned * 100f / TotalCells;
+        if (pct > player.MaxTerritoryPct)
+            player.MaxTerritoryPct = pct;
     }
 }
