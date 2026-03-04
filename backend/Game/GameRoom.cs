@@ -77,8 +77,18 @@ public class GameRoom
         {
             if (Players.TryGetValue(input.PlayerId, out var player) && player.IsAlive)
             {
-                if (!IsOpposite(player.Direction, input.Direction))
-                    player.Direction = input.Direction;
+                if (input.Direction != null && !IsOpposite(player.Direction, (Direction)input.Direction))
+                    player.Direction = (Direction)input.Direction;
+
+                if (input.Ability != null)
+                {
+                    switch (input.Ability)
+                    {
+                        case PlayerAbility.BOOST:
+                            player.SpeedMultiplier = 2;
+                            break;
+                    }
+                }
             }
         }
 
