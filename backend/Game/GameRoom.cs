@@ -144,12 +144,14 @@ public class GameRoom
                 if (p.Trail.Count == 0 || p.Trail[^1] != (newX, newY))
                 {
                     // account for all the grid spaces the player traveled through
-                    var rangeX = newX > oldX ? (oldX, newX) : (newX, oldX);
-                    var rangeY = newY > oldY ? (oldY, newY) : (newY, oldY);
+                    var rangeX = newX > oldX ? (oldX+1, newX) : (newX, oldX-1);
+                    var rangeY = newY > oldY ? (oldY+1, newY) : (newY, oldY-1);
+                    if (rangeX.Item1 != rangeX.Item2)
                     for (int i = rangeX.Item1; i <= rangeX.Item2; i++)
                     {
                         p.Trail.Add((i, newY));
                     }
+                    if (rangeY.Item1 != rangeY.Item2)
                     for (int i = rangeY.Item1; i <= rangeY.Item2; i++)
                     {
                         p.Trail.Add((newX, i));
