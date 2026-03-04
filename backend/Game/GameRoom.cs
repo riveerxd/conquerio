@@ -87,6 +87,10 @@ public class GameRoom
             if (!p.IsAlive) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
+
+            dx *= p.SpeedMultiplier;
+            dy *= p.SpeedMultiplier;
+
             int newX = p.X + dx;
             int newY = p.Y + dy;
 
