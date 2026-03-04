@@ -14,6 +14,12 @@ public static class CollisionDetector
         return false;
     }
 
+    /// <summary>Checks whether position (x, y) lies on <paramref name="player"/>'s trail.</summary>
+    public static bool HitsTrail(int x, int y, PlayerState player)
+    {
+        return player.Trail.Contains((x, y));
+    }
+
     public static bool HitsSelfTrail(int x, int y, PlayerState player)
     {
         // TODO

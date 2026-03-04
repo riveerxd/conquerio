@@ -19,7 +19,6 @@ public static class GameEndpoints
                 .Take(max_players)
                 .Select(lb => new
                 {
-                    Rank = 0, // will be assigned below
                     UserId = lb.UserId,
                     Username = lb.User.UserName,
                     Elo = lb.Elo,
@@ -27,17 +26,14 @@ public static class GameEndpoints
                 })
                 .ToListAsync();
 
-            var ranked = entries
-                .Select((e, i) => new
-                {
-                    Rank = i + 1,
-                    e.UserId,
-                    e.Username,
-                    e.Elo,
-                    e.BestTerritoryPct
-                });
-
-            return Results.Ok(ranked);
+            return Results.Ok(entries.Select((e, i) => new
+            {
+                Rank = i + 1,
+                e.UserId,
+                e.Username,
+                e.Elo,
+                e.BestTerritoryPct
+            }));
         });
 
         // GET /api/stats/{id}

@@ -16,6 +16,7 @@ public class PlayerState
 
     // stats tracked during a run
     public int Kills { get; set; }
+    public int OwnedCells { get; set; }
     public float MaxTerritoryPct { get; set; }
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
 
