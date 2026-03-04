@@ -37,6 +37,10 @@ export class NetworkClient {
     this.ws?.send(JSON.stringify({ type: "input", dir }));
   }
 
+  sendAbility(ability: string) {
+    this.ws?.send(JSON.stringify({ type: "ability", ability }));
+  }
+
   onDeath(cb: (msg: { killedBy: string | null; reason: string }) => void) {
     this.onDeathCb = cb;
   }

@@ -18,6 +18,11 @@ export class InputHandler {
 
   constructor(private network: NetworkClient) {
     this.handler = (e: KeyboardEvent) => {
+      if (e.key === " ") {
+        e.preventDefault();
+        this.network.sendAbility("BOOST");
+        return;
+      }
       const dir = KEY_MAP[e.key];
       if (dir && dir !== this.currentDir) {
         this.currentDir = dir;
