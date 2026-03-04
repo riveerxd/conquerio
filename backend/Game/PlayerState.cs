@@ -18,7 +18,6 @@ public class PlayerState
     public int BoostCooldownTicksRemaining { get; set; } = 0;
 
 
-    // future: abilities
     // changed speed multiplier to int because current grid logic utilizes integer coordinates
     public int SpeedMultiplier { get; set; } = 1;
 }
