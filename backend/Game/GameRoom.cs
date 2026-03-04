@@ -44,6 +44,21 @@ public class GameRoom
             Socket = socket
         };
 
+        // claim 3x3 spawn territory
+        for (int ox = -1; ox <= 1; ox++)
+        {
+            for (int oy = -1; oy <= 1; oy++)
+            {
+                int tx = spawnX + ox;
+                int ty = spawnY + oy;
+                if (tx >= 0 && tx < GridWidth && ty >= 0 && ty < GridHeight)
+                {
+                    Grid[tx, ty] = colorId;
+                    _gridDiff.Add(new GridCell { X = tx, Y = ty, C = colorId });
+                }
+            }
+        }
+
         Players[playerId] = player;
         return player;
     }
@@ -72,14 +87,32 @@ public class GameRoom
             if (!p.IsAlive) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
-            p.X += dx;
-            p.Y += dy;
+            int newX = p.X + dx;
+            int newY = p.Y + dy;
 
             // clamp to grid bounds
-            if (p.X < 0) p.X = 0;
-            if (p.X >= GridWidth) p.X = GridWidth - 1;
-            if (p.Y < 0) p.Y = 0;
-            if (p.Y >= GridHeight) p.Y = GridHeight - 1;
+            newX = Math.Clamp(newX, 0, GridWidth - 1);
+            newY = Math.Clamp(newY, 0, GridHeight - 1);
+
+            bool wasOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, p.X, p.Y, p.ColorId);
+            bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, newX, newY, p.ColorId);
+
+            p.X = newX;
+            p.Y = newY;
+
+            if (isOnTerritory && p.Trail.Count > 0)
+            {
+                // returned to own territory with trail - claim enclosed area
+                ClaimTerritory(p);
+            }
+            else if (!isOnTerritory)
+            {
+                // outside territory - track trail
+                if (p.Trail.Count == 0 || p.Trail[^1] != (newX, newY))
+                {
+                    p.Trail.Add((newX, newY));
+                }
+            }
         }
 
         BroadcastState();
@@ -140,4 +173,18 @@ public class GameRoom
         (a == Direction.Down && b == Direction.Up) ||
         (a == Direction.Left && b == Direction.Right) ||
         (a == Direction.Right && b == Direction.Left);
+
+    private void ClaimTerritory(PlayerState player)
+    {
+        var cellsToClaim = TerritoryResolver.Resolve(Grid, player);
+        foreach (var (x, y) in cellsToClaim)
+        {
+            if (Grid[x, y] != player.ColorId)
+            {
+                Grid[x, y] = player.ColorId;
+                _gridDiff.Add(new GridCell { X = x, Y = y, C = player.ColorId });
+            }
+        }
+        player.Trail.Clear();
+    }
 }
