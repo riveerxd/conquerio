@@ -14,6 +14,10 @@ public class PlayerState
     public List<(int X, int Y)> Trail { get; set; } = new();
     public required WebSocket Socket { get; set; }
 
+    public int BoostTicksRemaining { get; set; } = 0;
+    public int BoostCooldownTicksRemaining { get; set; } = 0;
+
+
     // future: abilities
     // changed speed multiplier to int because current grid logic utilizes integer coordinates
     public int SpeedMultiplier { get; set; } = 1;

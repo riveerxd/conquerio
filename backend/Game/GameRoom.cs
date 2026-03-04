@@ -11,6 +11,9 @@ public class GameRoom
     public int TickRate { get; } = 20;
     public int MaxPlayers { get; } = 20;
 
+    public int BoostLengthSeconds = 3;
+    public int BoostCooldownLengthSeconds = 10;
+
     public byte[,] Grid { get; }
     public ConcurrentDictionary<string, PlayerState> Players { get; } = new();
     public ConcurrentQueue<PlayerInput> InputQueue { get; } = new();
@@ -85,7 +88,8 @@ public class GameRoom
                     switch (input.Ability)
                     {
                         case PlayerAbility.BOOST:
-                            player.SpeedMultiplier = 2;
+                            if (player.BoostCooldownTicksRemaining <= 0)
+                                player.BoostTicksRemaining = TickRate * BoostLengthSeconds;
                             break;
                     }
                 }
@@ -97,6 +101,18 @@ public class GameRoom
             if (!p.IsAlive) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
+
+            // Handle boost ticks
+            p.BoostCooldownTicksRemaining = Math.Max(0, p.BoostCooldownTicksRemaining-1);
+            if (p.BoostTicksRemaining > 0)
+            {
+                if (--p.BoostTicksRemaining <= 0)
+                {
+                    p.SpeedMultiplier = 1;
+                    p.BoostCooldownTicksRemaining = BoostCooldownLengthSeconds * TickRate;
+                }
+                else p.SpeedMultiplier = 2;
+            }
 
             dx *= p.SpeedMultiplier;
             dy *= p.SpeedMultiplier;
