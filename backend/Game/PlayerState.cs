@@ -15,5 +15,6 @@ public class PlayerState
     public required WebSocket Socket { get; set; }
 
     // future: abilities
-    public float SpeedMultiplier { get; set; } = 1.0f;
+    // changed speed multiplier to int because current grid logic utilizes integer coordinates
+    public int SpeedMultiplier { get; set; } = 1;
 }
