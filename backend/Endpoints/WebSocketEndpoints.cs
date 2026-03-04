@@ -2,10 +2,12 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Text;
+using conquerio.Data;
 using conquerio.Game;
 using conquerio.Game.Messages;
 using conquerio.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace conquerio.Endpoints;
@@ -15,7 +17,8 @@ public static class WebSocketEndpoints
     public static void MapWebSocketEndpoints(this WebApplication app)
     {
         app.Map("/ws/game", async (HttpContext context, GameRoomManager roomManager,
-            UserManager<AppUser> userManager, IConfiguration config) =>
+            UserManager<AppUser> userManager, IConfiguration config,
+            IServiceScopeFactory scopeFactory) =>
         {
             if (!context.WebSockets.IsWebSocketRequest)
             {
@@ -57,6 +60,55 @@ public static class WebSocketEndpoints
             // join a room
             var room = roomManager.GetOrCreateRoom();
             var player = room.AddPlayer(userId, user.UserName ?? "unknown", ws);
+
+            // persist GameRun + update PlayerStats when this player dies
+            room.PlayerDied += async (evt) =>
+            {
+                if (evt.VictimId != userId) return;
+
+                using var scope = scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // save game run
+                db.GameRuns.Add(new GameRun
+                {
+                    UserId = evt.VictimId,
+                    Kills = evt.Kills,
+                    MaxTerritoryPct = evt.MaxTerritoryPct,
+                    DeathCause = evt.DeathCause,
+                    StartedAt = evt.StartedAt,
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                // upsert player stats
+                var stats = await db.PlayerStats.FindAsync(evt.VictimId);
+                if (stats == null)
+                {
+                    stats = new PlayerStats { UserId = evt.VictimId };
+                    db.PlayerStats.Add(stats);
+                }
+
+                stats.TotalGames++;
+                stats.TotalKills += evt.Kills;
+                stats.TotalDeaths++;
+                if (evt.MaxTerritoryPct > stats.BestTerritoryPct)
+                    stats.BestTerritoryPct = evt.MaxTerritoryPct;
+
+                // upsert leaderboard row (mirrors Elo from stats)
+                var lb = await db.Leaderboard.FindAsync(evt.VictimId);
+                if (lb == null)
+                {
+                    lb = new Leaderboard { UserId = evt.VictimId, Elo = stats.Elo };
+                    db.Leaderboard.Add(lb);
+                }
+                else
+                {
+                    lb.Elo = stats.Elo;
+                    lb.BestPct = stats.BestTerritoryPct;
+                }
+
+                await db.SaveChangesAsync();
+            };
 
             // send joined message with full grid
             await MessageSerializer.SendAsync(ws, new JoinedMessage

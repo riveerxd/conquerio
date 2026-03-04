@@ -14,6 +14,11 @@ public class PlayerState
     public List<(int X, int Y)> Trail { get; set; } = new();
     public required WebSocket Socket { get; set; }
 
+    // stats tracked during a run
+    public int Kills { get; set; }
+    public float MaxTerritoryPct { get; set; }
+    public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+
     // future: abilities
     public float SpeedMultiplier { get; set; } = 1.0f;
 }
