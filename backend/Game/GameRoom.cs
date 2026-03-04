@@ -127,6 +127,9 @@ public class GameRoom
             bool wasOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, p.X, p.Y, p.ColorId);
             bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, newX, newY, p.ColorId);
 
+            var oldX = p.X;
+            var oldY = p.Y;
+
             p.X = newX;
             p.Y = newY;
 
@@ -140,7 +143,17 @@ public class GameRoom
                 // outside territory - track trail
                 if (p.Trail.Count == 0 || p.Trail[^1] != (newX, newY))
                 {
-                    p.Trail.Add((newX, newY));
+                    // account for all the grid spaces the player traveled through
+                    var rangeX = newX > oldX ? (oldX, newX) : (newX, oldX);
+                    var rangeY = newY > oldY ? (oldY, newY) : (newY, oldY);
+                    for (int i = rangeX.Item1; i <= rangeX.Item2; i++)
+                    {
+                        p.Trail.Add((i, newY));
+                    }
+                    for (int i = rangeY.Item1; i <= rangeY.Item2; i++)
+                    {
+                        p.Trail.Add((newX, i));
+                    }
                 }
             }
         }
