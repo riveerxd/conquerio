@@ -11,6 +11,9 @@ public class GameRoom
     public int TickRate { get; } = 20;
     public int MaxPlayers { get; } = 20;
 
+    public int BoostLengthSeconds { get; } = 3;
+    public int BoostCooldownLengthSeconds { get; } = 10;
+
     public byte[,] Grid { get; }
     public ConcurrentDictionary<string, PlayerState> Players { get; } = new();
     public ConcurrentQueue<PlayerInput> InputQueue { get; } = new();
@@ -77,8 +80,19 @@ public class GameRoom
         {
             if (Players.TryGetValue(input.PlayerId, out var player) && player.IsAlive)
             {
-                if (!IsOpposite(player.Direction, input.Direction))
-                    player.Direction = input.Direction;
+                if (input.Direction != null && !IsOpposite(player.Direction, (Direction)input.Direction))
+                    player.Direction = (Direction)input.Direction;
+
+                if (input.Ability != null)
+                {
+                    switch (input.Ability)
+                    {
+                        case PlayerAbility.BOOST:
+                            if (player.BoostCooldownTicksRemaining <= 0)
+                                player.BoostTicksRemaining = TickRate * BoostLengthSeconds;
+                            break;
+                    }
+                }
             }
         }
 
@@ -87,6 +101,22 @@ public class GameRoom
             if (!p.IsAlive) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
+
+            // Handle boost ticks
+            p.BoostCooldownTicksRemaining = Math.Max(0, p.BoostCooldownTicksRemaining - 1);
+            if (p.BoostTicksRemaining > 0)
+            {
+                if (--p.BoostTicksRemaining <= 0)
+                {
+                    p.SpeedMultiplier = 1;
+                    p.BoostCooldownTicksRemaining = BoostCooldownLengthSeconds * TickRate;
+                }
+                else p.SpeedMultiplier = 2;
+            }
+
+            dx *= p.SpeedMultiplier;
+            dy *= p.SpeedMultiplier;
+
             int newX = p.X + dx;
             int newY = p.Y + dy;
 
@@ -94,23 +124,46 @@ public class GameRoom
             newX = Math.Clamp(newX, 0, GridWidth - 1);
             newY = Math.Clamp(newY, 0, GridHeight - 1);
 
+            var traveledSpaces = new LinkedList<(int, int)>();
+
+            // account for all the grid spaces the player traveled through
+            var rangeX = newX > p.X ? (p.X + 1, newX) : (newX, p.X - 1);
+            var rangeY = newY > p.Y ? (p.Y + 1, newY) : (newY, p.Y - 1);
+            if (p.X != newX)
+                for (int i = rangeX.Item1; i <= rangeX.Item2; i++)
+                {
+                    traveledSpaces.AddLast((i, newY));
+                }
+            if (p.Y != newY)
+                for (int i = rangeY.Item1; i <= rangeY.Item2; i++)
+                {
+                    traveledSpaces.AddLast((newX, i));
+                }
+
+            var oldX = p.X;
+            var oldY = p.Y;
+
             bool wasOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, p.X, p.Y, p.ColorId);
-            bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, newX, newY, p.ColorId);
 
             p.X = newX;
             p.Y = newY;
 
-            if (isOnTerritory && p.Trail.Count > 0)
+            foreach (var space in traveledSpaces)
             {
-                // returned to own territory with trail - claim enclosed area
-                ClaimTerritory(p);
-            }
-            else if (!isOnTerritory)
-            {
-                // outside territory - track trail
-                if (p.Trail.Count == 0 || p.Trail[^1] != (newX, newY))
+                bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, space.Item1, space.Item2, p.ColorId);
+                //Console.WriteLine($"Space: ({space.Item1}, {space.Item2}, {isOnTerritory}");
+                if (isOnTerritory && p.Trail.Count > 0)
                 {
-                    p.Trail.Add((newX, newY));
+                    // returned to own territory with trail - claim enclosed area
+                    ClaimTerritory(p);
+                }
+                else if (!isOnTerritory)
+                {
+                    // outside territory - track trail
+                    if (p.Trail.Count == 0 || p.Trail[^1] != (space.Item1, space.Item2))
+                    {
+                        p.Trail.Add(space);
+                    }
                 }
             }
         }
@@ -130,7 +183,8 @@ public class GameRoom
                 Dir = p.Direction.ToString().ToLower(),
                 Trail = p.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
                 Alive = p.IsAlive,
-                ColorId = p.ColorId
+                ColorId = p.ColorId,
+                SpeedMultiplier = p.SpeedMultiplier
             })
             .ToList();
 
