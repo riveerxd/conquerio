@@ -34,7 +34,7 @@ public class PlayerDto
     public required List<int[]> Trail { get; set; }
     public bool Alive { get; set; }
     public byte ColorId { get; set; }
-    public int SpeedMultiplier { get; set; }
+    public float SpeedMultiplier { get; set; }
 }
 
 public class GridCell
