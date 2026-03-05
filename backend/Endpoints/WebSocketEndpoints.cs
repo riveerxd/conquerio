@@ -60,10 +60,34 @@ public static class WebSocketEndpoints
                 return;
             }
 
-            using var ws = await context.WebSockets.AcceptWebSocketAsync();
+            // figure out which room to join
+            var roomId = context.Request.Query["roomId"].FirstOrDefault();
+            GameRoom room;
 
-            // join a room
-            var room = roomManager.GetOrCreateRoom();
+            if (!string.IsNullOrEmpty(roomId))
+            {
+                var target = roomManager.GetRoom(roomId);
+                if (target == null)
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+                if (target.IsFull)
+                {
+                    context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    return;
+                }
+                room = target;
+            }
+            else
+            {
+                room = roomManager.GetOrCreateRoom();
+            }
+
+            // cancel cleanup timer if someone joins an empty room
+            roomManager.CancelEmpty(room.RoomId);
+
+            using var ws = await context.WebSockets.AcceptWebSocketAsync();
             var player = room.AddPlayer(userId, user.UserName ?? "unknown", ws);
             var deathEvents = Channel.CreateUnbounded<PlayerDeathEvent>(new UnboundedChannelOptions
             {
@@ -134,6 +158,17 @@ public static class WebSocketEndpoints
                             }
                             break;
 
+                        case "ability":
+                            if (msg.Ability != null && Enum.TryParse<PlayerAbility>(msg.Ability, true, out var ability))
+                            {
+                                room.InputQueue.Enqueue(new PlayerInput
+                                {
+                                    PlayerId = userId,
+                                    Ability = ability
+                                });
+                            }
+                            break;
+
                         case "ping":
                             await MessageSerializer.SendAsync(ws, new PongMessage { T = msg.T ?? 0 });
                             break;
@@ -157,6 +192,8 @@ public static class WebSocketEndpoints
                 }
 
                 room.RemovePlayer(userId);
+                if (room.Players.IsEmpty)
+                    roomManager.MarkEmpty(room.RoomId);
             }
         });
     }

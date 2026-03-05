@@ -14,6 +14,9 @@ public class PlayerState
     public List<(int X, int Y)> Trail { get; set; } = new();
     public required WebSocket Socket { get; set; }
 
+    public int BoostTicksRemaining { get; set; } = 0;
+    public int BoostCooldownTicksRemaining { get; set; } = 0;
+
     // stats tracked during a run
     public int Kills { get; set; }
     public int OwnedCells { get; set; }

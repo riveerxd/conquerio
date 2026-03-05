@@ -12,10 +12,13 @@ export class NetworkClient {
   private lastTickTime = 0;
   private onDeathCb: ((msg: { killedBy: string | null; reason: string }) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
+  private onDisconnectCb: (() => void) | null = null;
 
-  connect(token: string) {
+  connect(token: string, roomId?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    this.ws = new WebSocket(`${proto}//${location.host}/ws/game?token=${token}`);
+    let url = `${proto}//${location.host}/ws/game?token=${token}`;
+    if (roomId) url += `&roomId=${roomId}`;
+    this.ws = new WebSocket(url);
 
     this.ws.onmessage = (e) => {
       const msg: ServerMessage = JSON.parse(e.data);
@@ -25,6 +28,7 @@ export class NetworkClient {
 
     this.ws.onclose = () => {
       this.ws = null;
+      this.onDisconnectCb?.();
     };
   }
 
@@ -37,12 +41,20 @@ export class NetworkClient {
     this.ws?.send(JSON.stringify({ type: "input", dir }));
   }
 
+  sendAbility(ability: string) {
+    this.ws?.send(JSON.stringify({ type: "ability", ability }));
+  }
+
   onDeath(cb: (msg: { killedBy: string | null; reason: string }) => void) {
     this.onDeathCb = cb;
   }
 
   onJoined(cb: () => void) {
     this.onJoinedCb = cb;
+  }
+
+  onDisconnect(cb: () => void) {
+    this.onDisconnectCb = cb;
   }
 
   getState(): GameState | null {
