@@ -1,6 +1,6 @@
 import { Camera } from "./Camera";
 import { getColor, getTerritoryColor, getTrailColor } from "./colors";
-import type { Player, GameState } from "./types";
+import type { Player, GameState, AbilityInfo } from "./types";
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
@@ -12,6 +12,12 @@ export class Renderer {
   }
 
   render(state: GameState, interpolatedPlayers: Player[]) {
+    const player = state.players.find(x => x.id == state.myPlayerId);
+    if (!player) {
+      console.error(`Player ${state.myPlayerId} was not found! Ability times couldn't be retrieved!`);
+    }
+    const abilities = player?.abilities;
+
     const { width, height } = this.canvas;
     const ctx = this.ctx;
 
@@ -23,7 +29,7 @@ export class Renderer {
     this.drawTrails(interpolatedPlayers, width, height);
     this.drawPlayers(interpolatedPlayers, state.myPlayerId, width, height);
     this.drawMinimap(state, interpolatedPlayers, width, height);
-    this.drawAbilities(width, height)
+    if (abilities) this.drawAbilities(width, height, abilities)
   }
 
   private drawGrid(state: GameState, canvasW: number, canvasH: number) {
@@ -154,7 +160,11 @@ export class Renderer {
     }
   }
 
-  private drawAbilities(canvasW: number, canvasH: number, img1?: HTMLImageElement, img2?: HTMLImageElement) {
+  private drawAbilities(
+    canvasW: number,
+    canvasH: number,
+    abilities: Array<AbilityInfo>
+  ) {
     const ctx = this.ctx;
     const boxSize = 50;
     const gap = 16;
@@ -165,7 +175,15 @@ export class Renderer {
     const startX = (canvasW - totalWidth) / 2;
     const startY = canvasH - boxSize - paddingBottom - textOffset;
 
-    const drawAbilityBox = (x: number, y: number, keybind: string, label: string, img?: HTMLImageElement) => {
+    const drawAbilityBox = (
+      x: number,
+      y: number,
+      keybind: string,
+      label: string,
+      cooldownSecondsRemaining: number,
+      durationSecondsRemaining: number,
+      img?: HTMLImageElement
+    ) => {
       ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
       ctx.fillRect(x, y, boxSize, boxSize);
 
@@ -173,28 +191,73 @@ export class Renderer {
         ctx.drawImage(img, x, y, boxSize, boxSize);
       }
 
-      ctx.strokeStyle = "#444";
-      ctx.lineWidth = 1;
+      const isActive = durationSecondsRemaining > 0;
+      const isOnCooldown = cooldownSecondsRemaining > 0 && !isActive;
+
+      ctx.lineWidth = isActive ? 3 : 1;
+      ctx.strokeStyle = isActive ? "#00ffcc" : "#444";
       ctx.strokeRect(x, y, boxSize, boxSize);
+
+      if (isOnCooldown) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(x, y, boxSize, boxSize);
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 20px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          Math.ceil(cooldownSecondsRemaining).toString(),
+          x + boxSize / 2,
+          y + boxSize / 2
+        );
+      }
+
+      if (isActive) {
+        ctx.fillStyle = "rgba(0, 255, 204, 0.2)";
+        ctx.fillRect(x, y, boxSize, boxSize);
+
+        ctx.fillStyle = "#00ffcc";
+        ctx.font = "bold 16px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          Math.ceil(durationSecondsRemaining).toString(),
+          x + boxSize / 2,
+          y + boxSize / 2
+        );
+      }
 
       ctx.fillStyle = "#fff";
       ctx.font = "bold 12px monospace";
       ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
       ctx.fillText(keybind, x + 4, y + 14);
 
       ctx.font = "12px monospace";
-      ctx.fillStyle = "#aaa";
+      ctx.fillStyle = isActive ? "#00ffcc" : "#aaa";
       ctx.textAlign = "center";
       ctx.fillText(label, x + boxSize / 2, y + boxSize + textOffset);
     };
 
     const boostImg = new Image();
-    boostImg.src = "/img/boost.png";
+    boostImg.src = "/img/boost.png"
 
     const shieldImg = new Image();
-    shieldImg.src = "/img/shield.png";
+    shieldImg.src = "/img/shield.png"
 
-    drawAbilityBox(startX, startY, "Q", "Ability 1", boostImg);
-    drawAbilityBox(startX + boxSize + gap, startY, "E", "Ability 2", shieldImg);
+    const boostAbility = abilities.find(x => x.name?.toLowerCase() == "boost");
+    if (boostAbility) {
+      const cooldownSeconds = boostAbility.cooldownSecondsRemaining;
+      const durationSeconds = boostAbility.durationSecondsRemaining;
+      drawAbilityBox(startX, startY, "Space", "Boost", cooldownSeconds, durationSeconds, boostImg);
+    }
+
+    const shieldAbility = abilities.find(x => x.name?.toLowerCase() == "shield");
+    if (shieldAbility) {
+      const cooldownSeconds = shieldAbility.cooldownSecondsRemaining;
+      const durationSeconds = shieldAbility.durationSecondsRemaining;
+      drawAbilityBox(startX + boxSize + gap, startY, "Shift", "Shield", cooldownSeconds, durationSeconds, shieldImg);
+    }
   }
 }

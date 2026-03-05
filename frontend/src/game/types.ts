@@ -8,6 +8,14 @@ export interface Player {
   trail: [number, number][];
   alive: boolean;
   colorId: number;
+  speedMultiplier: number;
+  abilities: Array<AbilityInfo>
+}
+
+export interface AbilityInfo {
+  name: string;
+  durationSecondsRemaining: number;
+  cooldownSecondsRemaining: number;
 }
 
 export interface GridCell {
