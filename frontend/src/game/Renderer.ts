@@ -23,6 +23,7 @@ export class Renderer {
     this.drawTrails(interpolatedPlayers, width, height);
     this.drawPlayers(interpolatedPlayers, state.myPlayerId, width, height);
     this.drawMinimap(state, interpolatedPlayers, width, height);
+    this.drawAbilities(width, height)
   }
 
   private drawGrid(state: GameState, canvasW: number, canvasH: number) {
@@ -151,5 +152,49 @@ export class Renderer {
       ctx.fillStyle = isMe ? "#fff" : getColor(p.colorId);
       ctx.fillRect(dotX - 2, dotY - 2, isMe ? 5 : 3, isMe ? 5 : 3);
     }
+  }
+
+  private drawAbilities(canvasW: number, canvasH: number, img1?: HTMLImageElement, img2?: HTMLImageElement) {
+    const ctx = this.ctx;
+    const boxSize = 50;
+    const gap = 16;
+    const paddingBottom = 24;
+    const textOffset = 18;
+
+    const totalWidth = (boxSize * 2) + gap;
+    const startX = (canvasW - totalWidth) / 2;
+    const startY = canvasH - boxSize - paddingBottom - textOffset;
+
+    const drawAbilityBox = (x: number, y: number, keybind: string, label: string, img?: HTMLImageElement) => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillRect(x, y, boxSize, boxSize);
+
+      if (img) {
+        ctx.drawImage(img, x, y, boxSize, boxSize);
+      }
+
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, boxSize, boxSize);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(keybind, x + 4, y + 14);
+
+      ctx.font = "12px monospace";
+      ctx.fillStyle = "#aaa";
+      ctx.textAlign = "center";
+      ctx.fillText(label, x + boxSize / 2, y + boxSize + textOffset);
+    };
+
+    const boostImg = new Image();
+    boostImg.src = "/img/boost.png";
+
+    const shieldImg = new Image();
+    shieldImg.src = "/img/shield.png";
+
+    drawAbilityBox(startX, startY, "Q", "Ability 1", boostImg);
+    drawAbilityBox(startX + boxSize + gap, startY, "E", "Ability 2", shieldImg);
   }
 }
