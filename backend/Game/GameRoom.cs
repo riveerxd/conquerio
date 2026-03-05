@@ -75,6 +75,14 @@ public class GameRoom
         Players.TryRemove(playerId, out _);
     }
 
+    public bool TryKillPlayer(string playerId, string? killerId, string cause)
+    {
+        if (!Players.TryGetValue(playerId, out var player))
+            return false;
+
+        return KillPlayer(player, killerId, cause);
+    }
+
     public void Tick()
     {
         _tick++;
@@ -89,6 +97,7 @@ public class GameRoom
             }
         }
 
+        // Collisions are resolved in enumeration order, so simultaneous head-on cases are not symmetric.
         foreach (var p in Players.Values)
         {
             if (!p.IsAlive) continue;
@@ -200,35 +209,65 @@ public class GameRoom
         (a == Direction.Left && b == Direction.Right) ||
         (a == Direction.Right && b == Direction.Left);
 
-    private void KillPlayer(PlayerState player, string? killerId, string cause)
+    private bool KillPlayer(PlayerState player, string? killerId, string cause)
     {
-        player.IsAlive = false;
-        player.Trail.Clear();
+        lock (player)
+        {
+            if (!player.IsAlive)
+                return false;
+
+            player.IsAlive = false;
+            player.Trail.Clear();
+        }
 
         var evt = new PlayerDeathEvent(
-            VictimId: player.PlayerId,
-            KillerId: killerId,
-            DeathCause: cause,
-            Kills: player.Kills,
-            MaxTerritoryPct: player.MaxTerritoryPct,
-            StartedAt: player.StartedAt
+            victimId: player.PlayerId,
+            killerId: killerId,
+            deathCause: cause,
+            kills: player.Kills,
+            maxTerritoryPct: player.MaxTerritoryPct,
+            startedAtUtc: player.StartedAt
         );
 
-        PlayerDied?.Invoke(evt);
+        var handlers = PlayerDied;
+        if (handlers is null)
+            return true;
+
+        foreach (Action<PlayerDeathEvent> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(evt);
+            }
+            catch
+            {
+                // Event handlers are best-effort and must not crash the game loop.
+            }
+        }
+
+        return true;
     }
 
     private void ClaimTerritory(PlayerState player)
     {
         var cellsToClaim = TerritoryResolver.Resolve(Grid, player);
+        var ownersByColor = Players.Values
+            .Where(p => p.IsAlive)
+            .ToDictionary(p => p.ColorId, p => p);
+
         int newlyOwned = 0;
         foreach (var (x, y) in cellsToClaim)
         {
-            if (Grid[x, y] != player.ColorId)
-            {
-                Grid[x, y] = player.ColorId;
-                _gridDiff.Add(new GridCell { X = x, Y = y, C = player.ColorId });
-                newlyOwned++;
-            }
+            var previousOwnerColor = Grid[x, y];
+            if (previousOwnerColor == player.ColorId)
+                continue;
+
+            if (previousOwnerColor != 0 && ownersByColor.TryGetValue(previousOwnerColor, out var victim) && victim.OwnedCells > 0)
+                victim.OwnedCells--;
+
+            Grid[x, y] = player.ColorId;
+            _gridDiff.Add(new GridCell { X = x, Y = y, C = player.ColorId });
+            newlyOwned++;
         }
         player.Trail.Clear();
 

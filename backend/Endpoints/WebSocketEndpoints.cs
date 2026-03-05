@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Channels;
 using conquerio.Data;
 using conquerio.Game;
 using conquerio.Game.Messages;
@@ -18,13 +19,17 @@ public static class WebSocketEndpoints
     {
         app.Map("/ws/game", async (HttpContext context, GameRoomManager roomManager,
             UserManager<AppUser> userManager, IConfiguration config,
-            IServiceScopeFactory scopeFactory) =>
+            IServiceScopeFactory scopeFactory,
+            ILoggerFactory loggerFactory) =>
         {
+            var logger = loggerFactory.CreateLogger("WebSocketEndpoints");
+
             if (!context.WebSockets.IsWebSocketRequest)
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 return;
             }
+        
 
             // auth from query param
             var token = context.Request.Query["token"].FirstOrDefault();
@@ -60,118 +65,29 @@ public static class WebSocketEndpoints
             // join a room
             var room = roomManager.GetOrCreateRoom();
             var player = room.AddPlayer(userId, user.UserName ?? "unknown", ws);
-
-            // persist GameRun + update PlayerStats when this player dies
-            // named local function so we can unsubscribe it in the finally block
-            async void OnPlayerDied(PlayerDeathEvent evt)
+            var deathEvents = Channel.CreateUnbounded<PlayerDeathEvent>(new UnboundedChannelOptions
             {
-                if (evt.VictimId != userId) return;
+                SingleReader = true,
+                SingleWriter = false
+            });
 
-                try
+            var deathPersistenceTask = Task.Run(async () =>
+            {
+                await foreach (var evt in deathEvents.Reader.ReadAllAsync())
                 {
-                    using var scope = scopeFactory.CreateScope();
-                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-                    await using var tx = await db.Database.BeginTransactionAsync();
-
-                    // save game run (inside the transaction so it rolls back if stats update fails)
-                    db.GameRuns.Add(new GameRun
-                    {
-                        UserId = evt.VictimId,
-                        Kills = evt.Kills,
-                        MaxTerritoryPct = evt.MaxTerritoryPct,
-                        DeathCause = evt.DeathCause,
-                        StartedAt = evt.StartedAt,
-                        UpdatedAt = DateTime.UtcNow
-                    });
-                    await db.SaveChangesAsync();
-
-                    // atomically increment player stats to avoid race conditions from concurrent deaths
-                    int statsUpdated = await db.PlayerStats
-                        .Where(ps => ps.UserId == evt.VictimId)
-                        .ExecuteUpdateAsync(s => s
-                            .SetProperty(ps => ps.TotalGames, ps => ps.TotalGames + 1)
-                            .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + evt.Kills)
-                            .SetProperty(ps => ps.TotalDeaths, ps => ps.TotalDeaths + 1)
-                            .SetProperty(ps => ps.BestTerritoryPct,
-                                ps => evt.MaxTerritoryPct > ps.BestTerritoryPct
-                                    ? evt.MaxTerritoryPct
-                                    : ps.BestTerritoryPct));
-
-                    if (statsUpdated == 0)
-                    {
-                        // first run for this player - insert
-                        db.PlayerStats.Add(new PlayerStats
-                        {
-                            UserId = evt.VictimId,
-                            TotalGames = 1,
-                            TotalKills = evt.Kills,
-                            TotalDeaths = 1,
-                            BestTerritoryPct = evt.MaxTerritoryPct
-                        });
-                        try
-                        {
-                            await db.SaveChangesAsync();
-                        }
-                        catch (DbUpdateException)
-                        {
-                            // A concurrent handler inserted the row first - detach and update instead
-                            db.ChangeTracker.Clear();
-                            await db.PlayerStats
-                                .Where(ps => ps.UserId == evt.VictimId)
-                                .ExecuteUpdateAsync(s => s
-                                    .SetProperty(ps => ps.TotalGames, ps => ps.TotalGames + 1)
-                                    .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + evt.Kills)
-                                    .SetProperty(ps => ps.TotalDeaths, ps => ps.TotalDeaths + 1)
-                                    .SetProperty(ps => ps.BestTerritoryPct,
-                                        ps => evt.MaxTerritoryPct > ps.BestTerritoryPct
-                                            ? evt.MaxTerritoryPct
-                                            : ps.BestTerritoryPct));
-                        }
-                    }
-
-                    // atomically upsert leaderboard row
-                    // TODO: update Elo based on game performance once Elo calculation is implemented
-                    int lbUpdated = await db.Leaderboard
-                        .Where(lb => lb.UserId == evt.VictimId)
-                        .ExecuteUpdateAsync(s => s
-                            .SetProperty(lb => lb.BestPct,
-                                lb => evt.MaxTerritoryPct > lb.BestPct
-                                    ? evt.MaxTerritoryPct
-                                    : lb.BestPct));
-
-                    if (lbUpdated == 0)
-                    {
-                        db.Leaderboard.Add(new Leaderboard
-                        {
-                            UserId = evt.VictimId,
-                            // TODO: set initial Elo once Elo calculation is implemented
-                            BestPct = evt.MaxTerritoryPct
-                        });
-                        try
-                        {
-                            await db.SaveChangesAsync();
-                        }
-                        catch (DbUpdateException)
-                        {
-                            // A concurrent handler inserted the row first - detach and update instead
-                            db.ChangeTracker.Clear();
-                            await db.Leaderboard
-                                .Where(lb => lb.UserId == evt.VictimId)
-                                .ExecuteUpdateAsync(s => s
-                                    .SetProperty(lb => lb.BestPct,
-                                        lb => evt.MaxTerritoryPct > lb.BestPct
-                                            ? evt.MaxTerritoryPct
-                                            : lb.BestPct));
-                        }
-                    }
-
-                    await tx.CommitAsync();
+                    await PersistDeathStatsAsync(scopeFactory, logger, evt);
                 }
-                catch (Exception ex)
+            });
+
+            // named local function so we can unsubscribe it in the finally block
+            void OnPlayerDied(PlayerDeathEvent evt)
+            {
+                if (evt.VictimId != userId)
+                    return;
+
+                if (!deathEvents.Writer.TryWrite(evt))
                 {
-                    // Must not let exceptions propagate from async void - they would crash the server.
-                    Console.Error.WriteLine($"[PlayerDied] Failed to persist stats for {userId}: {ex}");
+                    logger.LogWarning("Dropped death event for user {UserId}; death queue writer was closed.", userId);
                 }
             }
 
@@ -227,10 +143,152 @@ public static class WebSocketEndpoints
             catch (WebSocketException) { } // client disconnected
             finally
             {
+                room.TryKillPlayer(userId, killerId: null, cause: "disconnect");
                 room.PlayerDied -= OnPlayerDied;
+
+                deathEvents.Writer.TryComplete();
+                try
+                {
+                    await deathPersistenceTask;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Death persistence worker failed for user {UserId}", userId);
+                }
+
                 room.RemovePlayer(userId);
             }
         });
+    }
+
+    private static async Task PersistDeathStatsAsync(
+        IServiceScopeFactory scopeFactory,
+        ILogger logger,
+        PlayerDeathEvent evt)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        try
+        {
+            db.GameRuns.Add(new GameRun
+            {
+                UserId = evt.VictimId,
+                Kills = evt.Kills,
+                MaxTerritoryPct = evt.MaxTerritoryPct,
+                DeathCause = evt.DeathCause,
+                StartedAt = evt.StartedAtUtc,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to save game run for {VictimId}", evt.VictimId);
+        }
+
+        try
+        {
+            await UpsertPlayerStatsAsync(db, evt);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upsert player stats for {VictimId}", evt.VictimId);
+        }
+
+        try
+        {
+            await UpsertLeaderboardAsync(db, evt);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upsert leaderboard for {VictimId}", evt.VictimId);
+        }
+    }
+
+    private static async Task UpsertPlayerStatsAsync(AppDbContext db, PlayerDeathEvent evt)
+    {
+        int statsUpdated = await db.PlayerStats
+            .Where(ps => ps.UserId == evt.VictimId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(ps => ps.TotalGames, ps => ps.TotalGames + 1)
+                .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + evt.Kills)
+                .SetProperty(ps => ps.TotalDeaths, ps => ps.TotalDeaths + 1)
+                .SetProperty(ps => ps.BestTerritoryPct,
+                    ps => evt.MaxTerritoryPct > ps.BestTerritoryPct
+                        ? evt.MaxTerritoryPct
+                        : ps.BestTerritoryPct));
+
+        if (statsUpdated != 0)
+            return;
+
+        db.PlayerStats.Add(new PlayerStats
+        {
+            UserId = evt.VictimId,
+            TotalGames = 1,
+            TotalKills = evt.Kills,
+            TotalDeaths = 1,
+            BestTerritoryPct = evt.MaxTerritoryPct
+        });
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent handler inserted the row first - detach and update instead.
+            db.ChangeTracker.Clear();
+            await db.PlayerStats
+                .Where(ps => ps.UserId == evt.VictimId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(ps => ps.TotalGames, ps => ps.TotalGames + 1)
+                    .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + evt.Kills)
+                    .SetProperty(ps => ps.TotalDeaths, ps => ps.TotalDeaths + 1)
+                    .SetProperty(ps => ps.BestTerritoryPct,
+                        ps => evt.MaxTerritoryPct > ps.BestTerritoryPct
+                            ? evt.MaxTerritoryPct
+                            : ps.BestTerritoryPct));
+        }
+    }
+
+    private static async Task UpsertLeaderboardAsync(AppDbContext db, PlayerDeathEvent evt)
+    {
+        // TODO: update Elo based on game performance once Elo calculation is implemented.
+        int lbUpdated = await db.Leaderboard
+            .Where(lb => lb.UserId == evt.VictimId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(lb => lb.BestPct,
+                    lb => evt.MaxTerritoryPct > lb.BestPct
+                        ? evt.MaxTerritoryPct
+                        : lb.BestPct));
+
+        if (lbUpdated != 0)
+            return;
+
+        db.Leaderboard.Add(new Leaderboard
+        {
+            UserId = evt.VictimId,
+            // TODO: set initial Elo once Elo calculation is implemented.
+            BestPct = evt.MaxTerritoryPct
+        });
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent handler inserted the row first - detach and update instead.
+            db.ChangeTracker.Clear();
+            await db.Leaderboard
+                .Where(lb => lb.UserId == evt.VictimId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(lb => lb.BestPct,
+                        lb => evt.MaxTerritoryPct > lb.BestPct
+                            ? evt.MaxTerritoryPct
+                            : lb.BestPct));
+        }
     }
 
     private static ClaimsPrincipal? ValidateToken(string token, IConfiguration config)

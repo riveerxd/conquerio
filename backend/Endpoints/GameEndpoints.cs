@@ -1,4 +1,5 @@
 ﻿using conquerio.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace conquerio.Endpoints;
@@ -7,16 +8,26 @@ public static class GameEndpoints
 {
     public static void MapGameEndpoints(this WebApplication app)
     {
-        // GET /api/leaderboard?max_players={n}
-        app.MapGet("/api/leaderboard", async (AppDbContext db, int max_players = 10) =>
+        // GET /api/leaderboard?maxPlayers={n}
+        // Backwards compatible with max_players.
+        app.MapGet("/api/leaderboard", async (
+            AppDbContext db,
+            int? maxPlayers,
+            [FromQuery(Name = "max_players")] int? maxPlayersLegacy) =>
         {
-            if (max_players <= 0)
-                return Results.BadRequest("max_players must be a positive integer.");
+            const int defaultMaxPlayers = 10;
+            const int maxPlayersCap = 100;
+
+            int requested = maxPlayers ?? maxPlayersLegacy ?? defaultMaxPlayers;
+            if (requested <= 0)
+                return Results.BadRequest("maxPlayers must be a positive integer.");
+
+            int take = Math.Min(requested, maxPlayersCap);
 
             var entries = await db.Leaderboard
                 .Include(lb => lb.User)
                 .OrderByDescending(lb => lb.Elo)
-                .Take(max_players)
+                .Take(take)
                 .Select(lb => new
                 {
                     UserId = lb.UserId,
