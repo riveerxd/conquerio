@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using conquerio.Game.Abilities;
 
 namespace conquerio.Game.Messages;
 
@@ -35,6 +36,8 @@ public class PlayerDto
     public bool Alive { get; set; }
     public byte ColorId { get; set; }
     public int SpeedMultiplier { get; set; }
+
+    public IEnumerable<AbilityDto> Abilities { get; set; } = [];
 }
 
 public class GridCell
@@ -42,6 +45,13 @@ public class GridCell
     public int X { get; set; }
     public int Y { get; set; }
     public byte C { get; set; }
+}
+
+public class AbilityDto
+{
+    public required string Name;
+    public float DurationSecondsRemaining;
+    public float CooldownSecondsRemaining;
 }
 
 public class DeathMessage

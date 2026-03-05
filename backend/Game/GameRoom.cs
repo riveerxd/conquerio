@@ -109,7 +109,7 @@ public class GameRoom
 
             // Handle boost ticks
             //// TODO: Handle all abilities tick decrement
-            
+
             foreach (var ability in p.Abilities)
             {
                 ability.Tick();
@@ -174,20 +174,35 @@ public class GameRoom
 
     private void BroadcastState()
     {
-        var players = Players.Values
-            .Where(p => p.IsAlive)
-            .Select(p => new PlayerDto
+        var players = new List<PlayerDto>(Players.Values.Count);
+        foreach (var player in Players.Values.Where(p => p.IsAlive))
+        {
+            var dto = new PlayerDto
             {
-                Id = p.PlayerId,
-                X = p.X,
-                Y = p.Y,
-                Dir = p.Direction.ToString().ToLower(),
-                Trail = p.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
-                Alive = p.IsAlive,
-                ColorId = p.ColorId,
-                SpeedMultiplier = p.SpeedMultiplier
-            })
-            .ToList();
+                Id = player.PlayerId,
+                X = player.X,
+                Y = player.Y,
+                Dir = player.Direction.ToString().ToLower(),
+                Trail = player.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
+                Alive = player.IsAlive,
+                ColorId = player.ColorId,
+                SpeedMultiplier = player.SpeedMultiplier
+            };
+
+            var playerAbilities = new List<AbilityDto>(player.Abilities.Count);
+            foreach (var ability in player.Abilities)
+            {
+                playerAbilities.Add(new AbilityDto
+                {
+                    Name = ability.Tag,
+                    CooldownSecondsRemaining = ability.CooldownTicksRemaining / (float) TickRate,
+                    DurationSecondsRemaining = ability.DurationTicksRemaining / (float) TickRate,
+                });
+            }
+            dto.Abilities = playerAbilities;
+
+            players.Add(dto);
+        }
 
         var msg = new StateMessage
         {
