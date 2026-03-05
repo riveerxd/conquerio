@@ -41,7 +41,8 @@ public class PlayerDto
     public bool Alive { get; set; }
     public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
-    public float SpeedMultiplier { get; set; }
+    public int SpeedMultiplier { get; set; }
+    public IEnumerable<AbilityDto> Abilities { get; set; } = [];
 }
 
 public class GridCell
@@ -49,6 +50,13 @@ public class GridCell
     public int X { get; set; }
     public int Y { get; set; }
     public byte C { get; set; }
+}
+
+public class AbilityDto
+{
+    public required string Name { get; set; }
+    public float DurationSecondsRemaining { get; set; }
+    public float CooldownSecondsRemaining { get; set; }
 }
 
 public class DeathMessage

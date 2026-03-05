@@ -5,6 +5,9 @@ public abstract class PlayerAbility
     public bool IsReady { get => isReady; }
     public bool IsActivated { get => isActivated; }
 
+    public int CooldownTicksRemaining { get => cooldownTicksRemaining; }
+    public int DurationTicksRemaining { get => durationTicksRemaining; }
+
     private bool isReady = true;
     private bool isActivated = false;
     private int cooldownTicksRemaining = 0;
@@ -25,7 +28,7 @@ public abstract class PlayerAbility
     {
         if (cooldownTicksRemaining <= 0)
             Start();
-            isActivated = true;
+        isActivated = true;
         durationTicksRemaining = gameRoom.TickRate * DurationSeconds;
     }
 
