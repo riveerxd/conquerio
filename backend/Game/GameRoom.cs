@@ -6,6 +6,7 @@ namespace conquerio.Game;
 public class GameRoom
 {
     public string RoomId { get; }
+    public string Name { get; }
     public int GridWidth { get; } = 200;
     public int GridHeight { get; } = 200;
     public int TickRate { get; } = 20;
@@ -23,9 +24,10 @@ public class GameRoom
     private readonly List<GridCell> _gridDiff = new();
     private readonly Random _rng = new();
 
-    public GameRoom(string roomId)
+    public GameRoom(string roomId, string name)
     {
         RoomId = roomId;
+        Name = name;
         Grid = new byte[GridWidth, GridHeight];
     }
 

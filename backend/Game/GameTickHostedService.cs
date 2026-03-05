@@ -34,6 +34,8 @@ public class GameTickHostedService : BackgroundService
                 }
             }
 
+            _roomManager.CleanupEmptyRooms();
+
             var elapsed = Stopwatch.GetElapsedTime(start);
             var delay = _interval - elapsed;
             if (delay > TimeSpan.Zero)
