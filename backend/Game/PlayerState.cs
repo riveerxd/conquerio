@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using conquerio.Game.Abilities;
 
 namespace conquerio.Game;
 
@@ -14,8 +15,7 @@ public class PlayerState
     public List<(int X, int Y)> Trail { get; set; } = new();
     public required WebSocket Socket { get; set; }
 
-    public int BoostTicksRemaining { get; set; } = 0;
-    public int BoostCooldownTicksRemaining { get; set; } = 0;
+    public LinkedList<PlayerAbility> Abilities { get; set; } = new();
 
 
     // changed speed multiplier to int because current grid logic utilizes integer coordinates

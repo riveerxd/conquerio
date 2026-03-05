@@ -100,12 +100,12 @@ public static class WebSocketEndpoints
                             break;
 
                         case "ability":
-                            if (msg.Ability != null && Enum.TryParse<PlayerAbility>(msg.Ability, true, out var ability))
+                            if (msg.Ability != null)
                             {
                                 room.InputQueue.Enqueue(new PlayerInput
                                 {
                                     PlayerId = userId,
-                                    Ability = ability
+                                    Ability = msg.Ability
                                 });
                             }
                             break;

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using conquerio.Game.Abilities;
 using conquerio.Game.Messages;
 
 namespace conquerio.Game;
@@ -47,6 +48,8 @@ public class GameRoom
             Socket = socket
         };
 
+        player.Abilities.AddLast(new BoostAbility(this, player));
+
         // claim 3x3 spawn territory
         for (int ox = -1; ox <= 1; ox++)
         {
@@ -85,12 +88,14 @@ public class GameRoom
 
                 if (input.Ability != null)
                 {
-                    switch (input.Ability)
+                    var ability = player.Abilities.FirstOrDefault(x => x.Tag == input.Ability);
+                    if (ability == null)
                     {
-                        case PlayerAbility.BOOST:
-                            if (player.BoostCooldownTicksRemaining <= 0)
-                                player.BoostTicksRemaining = TickRate * BoostLengthSeconds;
-                            break;
+                        // ! log warning!!!
+                    }
+                    else
+                    {
+                        if (ability.IsReady) ability.Activate();
                     }
                 }
             }
@@ -103,15 +108,11 @@ public class GameRoom
             var (dx, dy) = GetDelta(p.Direction);
 
             // Handle boost ticks
-            p.BoostCooldownTicksRemaining = Math.Max(0, p.BoostCooldownTicksRemaining - 1);
-            if (p.BoostTicksRemaining > 0)
+            //// TODO: Handle all abilities tick decrement
+            
+            foreach (var ability in p.Abilities)
             {
-                if (--p.BoostTicksRemaining <= 0)
-                {
-                    p.SpeedMultiplier = 1;
-                    p.BoostCooldownTicksRemaining = BoostCooldownLengthSeconds * TickRate;
-                }
-                else p.SpeedMultiplier = 2;
+                ability.Tick();
             }
 
             dx *= p.SpeedMultiplier;
