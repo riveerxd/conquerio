@@ -52,10 +52,34 @@ public static class WebSocketEndpoints
                 return;
             }
 
-            using var ws = await context.WebSockets.AcceptWebSocketAsync();
+            // figure out which room to join
+            var roomId = context.Request.Query["roomId"].FirstOrDefault();
+            GameRoom room;
 
-            // join a room
-            var room = roomManager.GetOrCreateRoom();
+            if (!string.IsNullOrEmpty(roomId))
+            {
+                var target = roomManager.GetRoom(roomId);
+                if (target == null)
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+                if (target.IsFull)
+                {
+                    context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    return;
+                }
+                room = target;
+            }
+            else
+            {
+                room = roomManager.GetOrCreateRoom();
+            }
+
+            // cancel cleanup timer if someone joins an empty room
+            roomManager.CancelEmpty(room.RoomId);
+
+            using var ws = await context.WebSockets.AcceptWebSocketAsync();
             var player = room.AddPlayer(userId, user.UserName ?? "unknown", ws);
 
             // send joined message with full grid
@@ -120,6 +144,8 @@ public static class WebSocketEndpoints
             finally
             {
                 room.RemovePlayer(userId);
+                if (room.Players.IsEmpty)
+                    roomManager.MarkEmpty(room.RoomId);
             }
         });
     }

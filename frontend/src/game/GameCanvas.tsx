@@ -5,10 +5,11 @@ import { InputHandler } from "./InputHandler";
 
 interface Props {
   token: string;
+  roomId?: string;
   onDisconnect: () => void;
 }
 
-export default function GameCanvas({ token, onDisconnect }: Props) {
+export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -35,15 +36,21 @@ export default function GameCanvas({ token, onDisconnect }: Props) {
       // TODO: show death screen
     });
 
-    network.connect(token);
+    let intentionalDisconnect = false;
+    network.onDisconnect(() => {
+      if (!intentionalDisconnect) onDisconnect();
+    });
+
+    network.connect(token, roomId);
 
     return () => {
+      intentionalDisconnect = true;
       window.removeEventListener("resize", resize);
       input.destroy();
       gameLoop.stop();
       network.disconnect();
     };
-  }, [token, onDisconnect]);
+  }, [token, roomId, onDisconnect]);
 
   return <canvas ref={canvasRef} style={{ display: "block" }} />;
 }
