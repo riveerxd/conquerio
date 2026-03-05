@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using conquerio.Game.Abilities;
 
 namespace conquerio.Game;
 
@@ -16,8 +17,7 @@ public class PlayerState
     public bool IsDisconnected { get; set; }
     public long DisconnectedAtTick { get; set; }
 
-    public int BoostTicksRemaining { get; set; } = 0;
-    public int BoostCooldownTicksRemaining { get; set; } = 0;
+    public LinkedList<PlayerAbility> Abilities { get; set; } = new();
 
     // stats tracked during a run
     public int Kills { get; set; }
