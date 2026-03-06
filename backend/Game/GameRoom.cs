@@ -11,6 +11,7 @@ public class GameRoom
     public int GridHeight { get; } = 200;
     public int TickRate { get; } = 20;
     public int MaxPlayers { get; } = 20;
+    private int TotalCells => GridWidth * GridHeight;
 
     public int BoostLengthSeconds { get; } = 3;
     public int BoostCooldownLengthSeconds { get; } = 10;
@@ -18,6 +19,9 @@ public class GameRoom
     public byte[,] Grid { get; }
     public ConcurrentDictionary<string, PlayerState> Players { get; } = new();
     public ConcurrentQueue<PlayerInput> InputQueue { get; } = new();
+
+    /// <summary>Fired on the tick thread whenever a player is killed.</summary>
+    public event Action<PlayerDeathEvent>? PlayerDied;
 
     private long _tick;
     private byte _nextColorId = 1;
@@ -39,17 +43,8 @@ public class GameRoom
         var spawnX = _rng.Next(20, GridWidth - 20);
         var spawnY = _rng.Next(20, GridHeight - 20);
 
-        var player = new PlayerState
-        {
-            PlayerId = playerId,
-            Username = username,
-            X = spawnX,
-            Y = spawnY,
-            ColorId = colorId,
-            Socket = socket
-        };
-
-        // claim 3x3 spawn territory
+        // claim 3x3 spawn territory (spawn coords are >=20 from edges, so all 9 cells fit)
+        int spawnCells = 0;
         for (int ox = -1; ox <= 1; ox++)
         {
             for (int oy = -1; oy <= 1; oy++)
@@ -60,9 +55,21 @@ public class GameRoom
                 {
                     Grid[tx, ty] = colorId;
                     _gridDiff.Add(new GridCell { X = tx, Y = ty, C = colorId });
+                    spawnCells++;
                 }
             }
         }
+
+        var player = new PlayerState
+        {
+            PlayerId = playerId,
+            Username = username,
+            X = spawnX,
+            Y = spawnY,
+            ColorId = colorId,
+            Socket = socket,
+            OwnedCells = spawnCells
+        };
 
         Players[playerId] = player;
         return player;
@@ -71,6 +78,14 @@ public class GameRoom
     public void RemovePlayer(string playerId)
     {
         Players.TryRemove(playerId, out _);
+    }
+
+    public bool TryKillPlayer(string playerId, string? killerId, string cause)
+    {
+        if (!Players.TryGetValue(playerId, out var player))
+            return false;
+
+        return KillPlayer(player, killerId, cause);
     }
 
     public void Tick()
@@ -98,6 +113,7 @@ public class GameRoom
             }
         }
 
+        // Collisions are resolved in enumeration order, so simultaneous head-on cases are not symmetric.
         foreach (var p in Players.Values)
         {
             if (!p.IsAlive) continue;
@@ -116,16 +132,14 @@ public class GameRoom
                 else p.SpeedMultiplier = 2;
             }
 
-            dx *= p.SpeedMultiplier;
-            dy *= p.SpeedMultiplier;
-
-            int newX = p.X + dx;
-            int newY = p.Y + dy;
+            int newX = p.X + dx * (int)p.SpeedMultiplier;
+            int newY = p.Y + dy * (int)p.SpeedMultiplier;
 
             // clamp to grid bounds
             newX = Math.Clamp(newX, 0, GridWidth - 1);
             newY = Math.Clamp(newY, 0, GridHeight - 1);
 
+            bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, newX, newY, p.ColorId);
             var traveledSpaces = new LinkedList<(int, int)>();
 
             // account for all the grid spaces the player traveled through
@@ -136,57 +150,86 @@ public class GameRoom
                 {
                     traveledSpaces.AddLast((i, newY));
                 }
+
             if (p.Y != newY)
                 for (int i = rangeY.Item1; i <= rangeY.Item2; i++)
                 {
                     traveledSpaces.AddLast((newX, i));
                 }
 
-            var oldX = p.X;
-            var oldY = p.Y;
-
-            bool wasOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, p.X, p.Y, p.ColorId);
-
             p.X = newX;
             p.Y = newY;
 
-            foreach (var space in traveledSpaces)
+            // --- collision: self trail ---
+            if (CollisionDetector.HitsSelfTrail(newX, newY, p))
             {
-                bool isOnTerritory = TerritoryResolver.IsOnOwnTerritory(Grid, space.Item1, space.Item2, p.ColorId);
-                //Console.WriteLine($"Space: ({space.Item1}, {space.Item2}, {isOnTerritory}");
-                if (isOnTerritory && p.Trail.Count > 0)
+                KillPlayer(p, killerId: null, "self");
+                continue;
+            }
+
+            // --- collision: another player's trail ---
+            var killer = Players.Values.FirstOrDefault(other =>
+                other.PlayerId != p.PlayerId &&
+                other.IsAlive &&
+                CollisionDetector.HitsTrail(newX, newY, other));
+
+            if (killer != null)
+            {
+                killer.Kills++;
+                KillPlayer(p, killer.PlayerId, "trail");
+                continue;
+            }
+
+            if (isOnTerritory && p.Trail.Count > 0)
+            {
+                // returned to own territory with trail - claim enclosed area
+                ClaimTerritory(p);
+            }
+            else if (!isOnTerritory)
+            {
+                // outside territory - track trail
+                if (p.Trail.Count == 0 || p.Trail[^1] != (newX, newY))
                 {
-                    // returned to own territory with trail - claim enclosed area
-                    ClaimTerritory(p);
-                }
-                else if (!isOnTerritory)
-                {
-                    // outside territory - track trail
-                    if (p.Trail.Count == 0 || p.Trail[^1] != (space.Item1, space.Item2))
+                    p.Trail.Add((newX, newY));
+                    foreach (var space in traveledSpaces)
                     {
-                        p.Trail.Add(space);
+                        bool isOnOwnTerritory =
+                            TerritoryResolver.IsOnOwnTerritory(Grid, space.Item1, space.Item2, p.ColorId);
+                        if (isOnOwnTerritory && p.Trail.Count > 0)
+                        {
+                            // returned to own territory with trail - claim enclosed area
+                            ClaimTerritory(p);
+                        }
+                        else if (!isOnOwnTerritory)
+                        {
+                            // outside territory - track trail
+                            if (p.Trail.Count == 0 || p.Trail[^1] != (space.Item1, space.Item2))
+                            {
+                                p.Trail.Add(space);
+                            }
+                        }
                     }
                 }
+
+                BroadcastState();
             }
         }
-
-        BroadcastState();
     }
 
     private void BroadcastState()
     {
         var players = Players.Values
-            .Where(p => p.IsAlive)
-            .Select(p => new PlayerDto
+            .Where(ps => ps.IsAlive)
+            .Select(ps => new PlayerDto
             {
-                Id = p.PlayerId,
-                X = p.X,
-                Y = p.Y,
-                Dir = p.Direction.ToString().ToLower(),
-                Trail = p.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
-                Alive = p.IsAlive,
-                ColorId = p.ColorId,
-                SpeedMultiplier = p.SpeedMultiplier
+                Id = ps.PlayerId,
+                X = ps.X,
+                Y = ps.Y,
+                Dir = ps.Direction.ToString().ToLower(),
+                Trail = ps.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
+                Alive = ps.IsAlive,
+                ColorId = ps.ColorId,
+                SpeedMultiplier = ps.SpeedMultiplier
             })
             .ToList();
 
@@ -210,8 +253,8 @@ public class GameRoom
     {
         var flat = new byte[GridWidth * GridHeight];
         for (var y = 0; y < GridHeight; y++)
-            for (var x = 0; x < GridWidth; x++)
-                flat[y * GridWidth + x] = Grid[x, y];
+        for (var x = 0; x < GridWidth; x++)
+            flat[y * GridWidth + x] = Grid[x, y];
         return flat;
     }
 
@@ -230,17 +273,74 @@ public class GameRoom
         (a == Direction.Left && b == Direction.Right) ||
         (a == Direction.Right && b == Direction.Left);
 
+    private bool KillPlayer(PlayerState player, string? killerId, string cause)
+    {
+        lock (player)
+        {
+            if (!player.IsAlive)
+                return false;
+
+            player.IsAlive = false;
+            player.Trail.Clear();
+        }
+
+        var evt = new PlayerDeathEvent(
+            victimId: player.PlayerId,
+            killerId: killerId,
+            deathCause: cause,
+            kills: player.Kills,
+            maxTerritoryPct: player.MaxTerritoryPct,
+            startedAtUtc: player.StartedAt
+        );
+
+        var handlers = PlayerDied;
+        if (handlers is null)
+            return true;
+
+        foreach (var d in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action<PlayerDeathEvent>)d)(evt);
+            }
+            catch
+            {
+                // Event handlers are best-effort and must not crash the game loop.
+            }
+        }
+
+        return true;
+    }
+
     private void ClaimTerritory(PlayerState player)
     {
         var cellsToClaim = TerritoryResolver.Resolve(Grid, player);
+        var ownersByColor = Players.Values
+            .Where(ps => ps.IsAlive)
+            .ToDictionary(ps => ps.ColorId, ps => ps);
+
+        int newlyOwned = 0;
         foreach (var (x, y) in cellsToClaim)
         {
-            if (Grid[x, y] != player.ColorId)
-            {
-                Grid[x, y] = player.ColorId;
-                _gridDiff.Add(new GridCell { X = x, Y = y, C = player.ColorId });
-            }
+            var previousOwnerColor = Grid[x, y];
+            if (previousOwnerColor == player.ColorId)
+                continue;
+
+            if (previousOwnerColor != 0 && ownersByColor.TryGetValue(previousOwnerColor, out var victim) &&
+                victim.OwnedCells > 0)
+                victim.OwnedCells--;
+
+            Grid[x, y] = player.ColorId;
+            _gridDiff.Add(new GridCell { X = x, Y = y, C = player.ColorId });
+            newlyOwned++;
         }
+
         player.Trail.Clear();
+
+        // update best territory percentage incrementally
+        player.OwnedCells += newlyOwned;
+        var pct = player.OwnedCells * 100f / TotalCells;
+        if (pct > player.MaxTerritoryPct)
+            player.MaxTerritoryPct = pct;
     }
 }
