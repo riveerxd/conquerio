@@ -1,4 +1,5 @@
 ﻿using conquerio.Data;
+using conquerio.Game;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -69,7 +70,37 @@ public static class GameEndpoints
                 ? Results.NotFound($"No stats found for player '{id}'.")
                 : Results.Ok(stats);
         });
+
+        app.MapGet("/api/rooms", (GameRoomManager roomManager) =>
+        {
+            var rooms = roomManager.GetAllRooms()
+                .Where(r => r.Players.Count > 0)
+                .Select(r => new
+                {
+                    id = r.RoomId,
+                    name = r.Name,
+                    playerCount = r.Players.Count,
+                    maxPlayers = r.MaxPlayers
+                });
+
+            return Results.Ok(rooms);
+        }).RequireAuthorization();
+
+        app.MapPost("/api/rooms", (GameRoomManager roomManager, CreateRoomRequest? request) =>
+        {
+            var room = roomManager.CreateRoom(request?.Name);
+
+            return Results.Ok(new
+            {
+                id = room.RoomId,
+                name = room.Name,
+                playerCount = 0,
+                maxPlayers = room.MaxPlayers
+            });
+        }).RequireAuthorization();
     }
 }
+
+record CreateRoomRequest(string? Name);
 
 
