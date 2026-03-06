@@ -22,7 +22,7 @@ public static class CollisionDetector
     /// Returns true if (x, y) lies on the trail of any player in the
     /// collection, optionally excluding one player by id.
     /// </summary>
-    public static bool HitsTrail(int x, int y, IEnumerable<PlayerState> players, string excludePlayerId)
+    public static bool HitsTrail(int x, int y, IEnumerable<PlayerState> players, string? excludePlayerId)
     {
         foreach (var player in players)
         {
@@ -44,6 +44,24 @@ public static class CollisionDetector
         int count = trail.Count;
         for (int i = 0; i < count - 1; i++)
             if (trail[i].X == x && trail[i].Y == y) return true;
+        return false;
+    }
+    /// <summary>
+    /// Returns true if (x, y) is the position of any player in the
+    /// collection, optionally excluding one player by id.
+    /// </summary>
+    /// <param name="x">Coordinate</param>
+    /// <param name="y">Coordinate</param>
+    /// <param name="players">List of players</param>
+    /// <param name="excludePlayerId">excluded player</param>
+    /// <returns></returns>
+    public static bool HitsPlayer(int x, int y, IEnumerable<PlayerState> players, string? excludePlayerId)
+    {
+        foreach (var player in players)
+        {
+            if (player.PlayerId == excludePlayerId) continue;
+            if (player.X == x && player.Y == y) return true;
+        }
         return false;
     }
 }

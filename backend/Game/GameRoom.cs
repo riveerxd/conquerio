@@ -113,7 +113,7 @@ public class GameRoom
             }
         }
 
-        // Collisions are resolved in enumeration order, so simultaneous head-on cases are not symmetric.
+        // Collisions are checked against pre-movement positions for fairness in simultaneous edge cases.
         foreach (var p in Players.Values)
         {
             if (!p.IsAlive) continue;
@@ -180,6 +180,17 @@ public class GameRoom
                 continue;
             }
 
+            // --- collision: another player does not give kill credit ---
+            if (CollisionDetector.HitsPlayer(newX, newY, Players.Values, p.PlayerId))
+            {
+                var other = Players.Values.FirstOrDefault(o => o.PlayerId != p.PlayerId && o.X == newX && o.Y == newY);
+                if (other != null)
+                {
+                    KillPlayer(p, other.PlayerId, "Head-on");
+                    continue;
+                }
+            }
+
             if (isOnTerritory && p.Trail.Count > 0)
             {
                 // returned to own territory with trail - claim enclosed area
@@ -212,6 +223,25 @@ public class GameRoom
                 }
 
                 BroadcastState();
+            }
+        }
+
+        // Check for players occupying the same position after movement (e.g., head-on collisions)
+        var positionCounts = new Dictionary<(int, int), List<PlayerState>>();
+        foreach (var p in Players.Values)
+        {
+            if (p.IsAlive)
+            {
+                var pos = (p.X, p.Y);
+                if (!positionCounts.ContainsKey(pos)) positionCounts[pos] = new List<PlayerState>();
+                positionCounts[pos].Add(p);
+            }
+        }
+        foreach (var group in positionCounts.Values.Where(g => g.Count > 1))
+        {
+            foreach (var p in group)
+            {
+                KillPlayer(p, null, "collision");
             }
         }
     }
