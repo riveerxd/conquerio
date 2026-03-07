@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { login, register } from "../api/auth";
+import { login, register, AuthError } from "../api/auth";
 
 interface Props {
   onLogin: (token: string) => void;
@@ -20,26 +20,20 @@ export default function LoginScreen({ onLogin }: Props) {
 
     try {
       if (isRegister) {
-        const res = await register(username, email, password);
-        if (res.message === "Registration successful.") {
-          // auto-login after register
-          const loginRes = await login(username, password);
-          if (loginRes.token) {
-            onLogin(loginRes.token);
-            return;
-          }
-        }
-        setError(res.message ?? "Registration failed");
+        await register(username, email, password);
+        // auto-login after successful registration
+        const loginRes = await login(username, password);
+        onLogin(loginRes.token);
       } else {
-        const res = await login(username, password);
-        if (res.token) {
-          onLogin(res.token);
-          return;
-        }
-        setError(res.message ?? "Login failed");
+        const loginRes = await login(username, password);
+        onLogin(loginRes.token);
       }
-    } catch {
-      setError("Connection failed");
+    } catch (err) {
+      if (err instanceof AuthError) {
+        setError(err.message);
+      } else {
+        setError("Connection failed");
+      }
     } finally {
       setLoading(false);
     }
