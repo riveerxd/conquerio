@@ -13,9 +13,25 @@ export default function LoginScreen({ onLogin }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const validatePassword = (pw: string): string | null => {
+    if (pw.length < 6) return "Password must be at least 6 characters";
+    if (!/\d/.test(pw)) return "Password must contain at least one digit";
+    if (!/[a-z]/.test(pw)) return "Password must contain at least one lowercase letter";
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (isRegister) {
+      const pwError = validatePassword(password);
+      if (pwError) {
+        setError(pwError);
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -69,6 +85,11 @@ export default function LoginScreen({ onLogin }: Props) {
           style={styles.input}
           required
         />
+        {isRegister && (
+          <div style={styles.hint}>
+            min 6 chars · 1 digit · 1 lowercase
+          </div>
+        )}
         {error && <div style={styles.error}>{error}</div>}
         <button type="submit" style={styles.button} disabled={loading}>
           {loading ? "..." : isRegister ? "register" : "play"}
@@ -137,5 +158,10 @@ const styles: Record<string, React.CSSProperties> = {
   error: {
     color: "#e74c3c",
     fontSize: "13px",
+  },
+  hint: {
+    color: "#555",
+    fontSize: "12px",
+    marginTop: "-4px",
   },
 };
