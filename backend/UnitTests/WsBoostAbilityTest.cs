@@ -25,7 +25,7 @@ public class WsBoostAbilityTest : WsTestBase
 
         await SendMsg(ws, new { type = "ability", ability = "BOOST" });
 
-        await WaitUntil(() => player.PendingAbility == "BOOST");
+        await WaitUntil(() => !room.InputQueue.IsEmpty);
 
         room.Tick();
 
