@@ -13,6 +13,7 @@ export class NetworkClient {
   private onDeathCb: ((msg: { killedBy: string | null; reason: string }) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
+  private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
 
   connect(token: string, roomId?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -55,6 +56,10 @@ export class NetworkClient {
 
   onDisconnect(cb: () => void) {
     this.onDisconnectCb = cb;
+  }
+
+  onStateUpdate(cb: (state: import("./types").GameState) => void) {
+    this.onStateUpdateCb = cb;
   }
 
   getState(): GameState | null {
@@ -111,6 +116,11 @@ export class NetworkClient {
 
     for (const cell of msg.gridDiff) {
       this.grid[cell.y * this.gridWidth + cell.x] = cell.c;
+    }
+
+    if (this.onStateUpdateCb) {
+      const state = this.getState();
+      if (state) this.onStateUpdateCb(state);
     }
   }
 }
