@@ -10,11 +10,12 @@ public class WsMultiClientStateTest : WsTestBase
     [Fact]
     public async Task MultipleClients_ReceiveStateUpdates()
     {
-        var token1 = await RegisterAndGetToken("ws_multi1a", "multi1a@test.com", "Pass123!");
-        var token2 = await RegisterAndGetToken("ws_multi1b", "multi1b@test.com", "Pass123!");
+        var uid = UniqueId();
+        var token1 = await RegisterAndGetToken($"multi1_{uid}", $"multi1_{uid}@test.com", "Pass123!");
+        var token2 = await RegisterAndGetToken($"multi2_{uid}", $"multi2_{uid}@test.com", "Pass123!");
 
         var manager = Factory.Services.GetRequiredService<GameRoomManager>();
-        var room = manager.CreateRoom("multi-room-test");
+        var room = manager.CreateRoom($"multi-room-{uid}");
 
         using var ws1 = await ConnectWs(token1, room.RoomId);
         var joined1 = await ReceiveMsg(ws1);

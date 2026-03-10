@@ -7,7 +7,8 @@ public class WsValidJwtTest : WsTestBase
     [Fact]
     public async Task ValidJwt_ReceivesJoinedMessage()
     {
-        var token = await RegisterAndGetToken("ws_jwt1", "jwt1@test.com", "Pass123!");
+        var uid = UniqueId();
+        var token = await RegisterAndGetToken($"jwt_{uid}", $"jwt_{uid}@test.com", "Pass123!");
 
         using var ws = await ConnectWs(token);
         var msg = await ReceiveMsg(ws);

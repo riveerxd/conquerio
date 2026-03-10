@@ -10,7 +10,8 @@ public class WsBoostAbilityTest : WsTestBase
     [Fact]
     public async Task BoostAbility_SpeedChanges()
     {
-        var token = await RegisterAndGetToken("ws_boost1", "boost1@test.com", "Pass123!");
+        var uid = UniqueId();
+        var token = await RegisterAndGetToken($"boost_{uid}", $"boost_{uid}@test.com", "Pass123!");
 
         using var ws = await ConnectWs(token);
         var joined = await ReceiveMsg(ws);
@@ -23,7 +24,8 @@ public class WsBoostAbilityTest : WsTestBase
         Assert.Equal(1f, player.SpeedMultiplier);
 
         await SendMsg(ws, new { type = "ability", ability = "BOOST" });
-        await Task.Delay(100);
+
+        await WaitUntil(() => player.PendingAbility == "BOOST");
 
         room.Tick();
 

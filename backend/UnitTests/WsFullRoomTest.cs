@@ -10,20 +10,32 @@ public class WsFullRoomTest : WsTestBase
     [Fact]
     public async Task FullRoom_GetsRejected()
     {
+        var uid = UniqueId();
         var manager = Factory.Services.GetRequiredService<GameRoomManager>();
-        var room = manager.CreateRoom("full-room-test");
+        var room = manager.CreateRoom($"full-room-{uid}");
 
+        // fill with fake players
         for (int i = 0; i < room.MaxPlayers; i++)
-            room.AddPlayer($"fake-fulltest-{i}", $"Fake{i}", null!);
+            room.AddPlayer($"fake-{uid}-{i}", $"Fake{i}", null!);
 
         Assert.True(room.IsFull);
 
-        var token = await RegisterAndGetToken("ws_full1", "full1@test.com", "Pass123!");
-        var wsClient = Factory.Server.CreateWebSocketClient();
-        var uri = new Uri(
-            $"ws://localhost/ws/game?token={Uri.EscapeDataString(token)}&roomId={room.RoomId}");
+        try
+        {
+            var token = await RegisterAndGetToken($"full_{uid}", $"full_{uid}@test.com", "Pass123!");
+            var wsClient = Factory.Server.CreateWebSocketClient();
+            var uri = new Uri(
+                $"ws://localhost/ws/game?token={Uri.EscapeDataString(token)}&roomId={room.RoomId}");
 
-        await Assert.ThrowsAnyAsync<Exception>(() =>
-            wsClient.ConnectAsync(uri, CancellationToken.None));
+            await Assert.ThrowsAnyAsync<Exception>(() =>
+                wsClient.ConnectAsync(uri, CancellationToken.None));
+        }
+        finally
+        {
+            // cleanup fake players so they don't interfere with other tests
+            foreach (var pid in room.Players.Keys.ToList())
+                room.RemovePlayer(pid);
+            manager.RemoveRoom(room.RoomId);
+        }
     }
 }

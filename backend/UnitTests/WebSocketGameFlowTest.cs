@@ -102,11 +102,14 @@ public class GameFactory : IAsyncLifetime
 public abstract class WsTestBase : IClassFixture<GameFactory>
 {
     protected readonly GameFactory Factory;
+    private static int _userCounter;
 
     protected WsTestBase(GameFactory factory)
     {
         Factory = factory;
     }
+
+    protected static string UniqueId() => $"{Interlocked.Increment(ref _userCounter)}_{Guid.NewGuid():N}";
 
     protected async Task<string> RegisterAndGetToken(string username, string email, string password)
     {
@@ -158,5 +161,12 @@ public abstract class WsTestBase : IClassFixture<GameFactory>
     {
         if (ws.State == WebSocketState.Open)
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+    }
+
+    protected static async Task WaitUntil(Func<bool> condition, int timeoutMs = 2000, int pollMs = 20)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (!condition() && DateTime.UtcNow < deadline)
+            await Task.Delay(pollMs);
     }
 }

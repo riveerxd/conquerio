@@ -10,7 +10,8 @@ public class WsDisconnectTest : WsTestBase
     [Fact]
     public async Task Disconnect_PlayerRemovedFromRoom()
     {
-        var token = await RegisterAndGetToken("ws_disc1", "disc1@test.com", "Pass123!");
+        var uid = UniqueId();
+        var token = await RegisterAndGetToken($"disc_{uid}", $"disc_{uid}@test.com", "Pass123!");
 
         using var ws = await ConnectWs(token);
         var joined = await ReceiveMsg(ws);
@@ -20,7 +21,8 @@ public class WsDisconnectTest : WsTestBase
         Assert.NotNull(manager.FindRoomForPlayer(playerId));
 
         await CloseWs(ws);
-        await Task.Delay(500);
+
+        await WaitUntil(() => manager.FindRoomForPlayer(playerId) == null);
 
         Assert.Null(manager.FindRoomForPlayer(playerId));
     }

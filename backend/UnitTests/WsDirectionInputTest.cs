@@ -10,7 +10,8 @@ public class WsDirectionInputTest : WsTestBase
     [Fact]
     public async Task DirectionInput_PlayerMovesOnTick()
     {
-        var token = await RegisterAndGetToken("ws_dir1", "dir1@test.com", "Pass123!");
+        var uid = UniqueId();
+        var token = await RegisterAndGetToken($"dir_{uid}", $"dir_{uid}@test.com", "Pass123!");
 
         using var ws = await ConnectWs(token);
         var joined = await ReceiveMsg(ws);
@@ -22,7 +23,8 @@ public class WsDirectionInputTest : WsTestBase
         var initialY = player.Y;
 
         await SendMsg(ws, new { type = "input", dir = "down" });
-        await Task.Delay(100);
+
+        await WaitUntil(() => player.Direction == Direction.Down);
 
         for (int i = 0; i < 5; i++)
             room.Tick();
