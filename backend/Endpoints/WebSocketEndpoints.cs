@@ -117,7 +117,7 @@ public static class WebSocketEndpoints
 
             room.PlayerDied += OnPlayerDied;
 
-            // send joined message with full grid
+            // send joined message with compressed grid
             await MessageSerializer.SendAsync(ws, new JoinedMessage
             {
                 PlayerId = userId,
@@ -125,7 +125,7 @@ public static class WebSocketEndpoints
                 GridWidth = room.GridWidth,
                 GridHeight = room.GridHeight,
                 TickRate = room.TickRate,
-                Grid = room.GetFlatGrid()
+                RleGrid = room.GetRleGrid()
             });
 
             // read loop
