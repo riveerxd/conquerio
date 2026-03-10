@@ -13,6 +13,8 @@ public class PlayerState
     public byte ColorId { get; set; }
     public List<(int X, int Y)> Trail { get; set; } = new();
     public required WebSocket Socket { get; set; }
+    public bool IsDisconnected { get; set; }
+    public long DisconnectedAtTick { get; set; }
 
     public int BoostTicksRemaining { get; set; } = 0;
     public int BoostCooldownTicksRemaining { get; set; } = 0;
