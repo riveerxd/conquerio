@@ -178,7 +178,7 @@ public static class WebSocketEndpoints
             catch (WebSocketException) { } // client disconnected
             finally
             {
-                room.TryKillPlayer(userId, killerId: null, cause: "disconnect");
+                room.MarkDisconnected(userId);
                 room.PlayerDied -= OnPlayerDied;
 
                 deathEvents.Writer.TryComplete();
@@ -191,8 +191,15 @@ public static class WebSocketEndpoints
                     logger.LogError(ex, "Death persistence worker failed for user {UserId}", userId);
                 }
 
-                room.RemovePlayer(userId);
-                if (room.Players.IsEmpty)
+                // Wait a bit to see if they actually timed out before checking if room should be marked empty
+                await Task.Delay(11000);
+
+                if (room.Players.TryGetValue(userId, out var p) && !p.IsAlive)
+                {
+                    room.RemovePlayer(userId);
+                }
+
+                if (room.Players.Values.All(ps => ps.IsDisconnected || !ps.IsAlive))
                     roomManager.MarkEmpty(room.RoomId);
             }
         });

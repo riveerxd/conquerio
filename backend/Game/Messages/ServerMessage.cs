@@ -33,6 +33,7 @@ public class PlayerDto
     public required string Dir { get; set; }
     public required List<int[]> Trail { get; set; }
     public bool Alive { get; set; }
+    public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
     public float SpeedMultiplier { get; set; }
 }
