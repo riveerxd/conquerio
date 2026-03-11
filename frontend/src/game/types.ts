@@ -2,6 +2,7 @@ export type Direction = "up" | "down" | "left" | "right";
 
 export interface Player {
   id: string;
+  username: string;
   x: number;
   y: number;
   dir: Direction;
