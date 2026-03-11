@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using conquerio.Game.Messages;
+using Serilog;
 
 namespace conquerio.Game;
 
@@ -72,12 +73,20 @@ public class GameRoom
         };
 
         Players[playerId] = player;
+
+        Log.Information("Player {PlayerId} joined room {RoomId}. Current players: {PlayerCount}. Metric: PlayersPerRoom",
+            playerId, RoomId, Players.Count);
+
         return player;
     }
 
     public void RemovePlayer(string playerId)
     {
-        Players.TryRemove(playerId, out _);
+        if (Players.TryRemove(playerId, out _))
+        {
+            Log.Information("Player {PlayerId} left room {RoomId}. Remaining players: {PlayerCount}. Metric: PlayersPerRoom",
+                playerId, RoomId, Players.Count);
+        }
     }
 
     public bool TryKillPlayer(string playerId, string? killerId, string cause)
@@ -315,6 +324,13 @@ public class GameRoom
             player.Trail.Clear();
         }
 
+        var duration = DateTime.UtcNow - player.StartedAt;
+        Log.Information("Player {PlayerId} died in room {RoomId} after {DurationSeconds}s. Cause: {Cause}. Metric: GameDuration",
+            player.PlayerId, RoomId, duration.TotalSeconds, cause);
+
+        Log.Information("Death in room {RoomId}. Victim: {PlayerId}, Killer: {KillerId}, Cause: {Cause}. Metric: Death",
+            RoomId, player.PlayerId, killerId ?? "N/A", cause);
+
         var evt = new PlayerDeathEvent(
             victimId: player.PlayerId,
             killerId: killerId,
@@ -367,6 +383,9 @@ public class GameRoom
         }
 
         player.Trail.Clear();
+
+        Log.Information("Player {PlayerId} claimed {CellCount} cells in room {RoomId}. Metric: TerritoryClaimed",
+            player.PlayerId, newlyOwned, RoomId);
 
         // update best territory percentage incrementally
         player.OwnedCells += newlyOwned;
