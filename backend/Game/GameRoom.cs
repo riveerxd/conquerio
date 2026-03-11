@@ -253,6 +253,7 @@ public class GameRoom
             .Select(ps => new PlayerDto
             {
                 Id = ps.PlayerId,
+                Username = ps.Username,
                 X = ps.X,
                 Y = ps.Y,
                 Dir = ps.Direction.ToString().ToLower(),

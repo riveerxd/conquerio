@@ -28,6 +28,7 @@ public class StateMessage
 public class PlayerDto
 {
     public required string Id { get; set; }
+    public required string Username { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
     public required string Dir { get; set; }
