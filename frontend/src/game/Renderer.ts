@@ -123,12 +123,10 @@ export class Renderer {
 
       this.ctx.fillStyle = getColor(p.colorId);
       this.ctx.fillRect(sx + 1, sy + 1, cs - 2, cs - 2);
-
-      // TODO: show actual username instead of id
       this.ctx.fillStyle = "#fff";
       this.ctx.font = "12px monospace";
       this.ctx.textAlign = "center";
-      const label = p.id === myId ? "you" : p.id.slice(0, 6);
+      const label = p.id === myId ? "you" : p.username;
       this.ctx.fillText(label, sx + cs / 2, sy - 4);
     }
   }
