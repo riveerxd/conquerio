@@ -36,10 +36,17 @@ public class GameRoom
         Grid = new byte[GridWidth, GridHeight];
     }
 
-    public bool IsFull => Players.Count >= MaxPlayers;
+    public bool IsFull => Players.Values.Count(p => p.IsAlive) >= MaxPlayers;
 
     public PlayerState AddPlayer(string playerId, string username, System.Net.WebSockets.WebSocket socket)
     {
+        if (Players.TryGetValue(playerId, out var existing) && existing.IsAlive)
+        {
+            existing.Socket = socket;
+            existing.IsDisconnected = false;
+            return existing;
+        }
+
         var colorId = _nextColorId++;
         var spawnX = _rng.Next(20, GridWidth - 20);
         var spawnY = _rng.Next(20, GridHeight - 20);
@@ -102,6 +109,15 @@ public class GameRoom
         _tick++;
         _gridDiff.Clear();
 
+        // Expire grace periods
+        foreach (var p in Players.Values)
+        {
+            if (p.IsAlive && p.IsDisconnected && (_tick - p.DisconnectedAtTick) > (TickRate * 10))
+            {
+                KillPlayer(p, null, "timeout");
+            }
+        }
+
         while (InputQueue.TryDequeue(out var input))
         {
             if (Players.TryGetValue(input.PlayerId, out var player) && player.IsAlive)
@@ -125,7 +141,7 @@ public class GameRoom
         // Collisions are checked against pre-movement positions for fairness in simultaneous edge cases.
         foreach (var p in Players.Values)
         {
-            if (!p.IsAlive) continue;
+            if (!p.IsAlive || p.IsDisconnected) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
 
@@ -268,6 +284,7 @@ public class GameRoom
                 Dir = ps.Direction.ToString().ToLower(),
                 Trail = ps.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
                 Alive = ps.IsAlive,
+                Disconnected = ps.IsDisconnected,
                 ColorId = ps.ColorId,
                 SpeedMultiplier = ps.SpeedMultiplier
             })
@@ -392,5 +409,14 @@ public class GameRoom
         var pct = player.OwnedCells * 100f / TotalCells;
         if (pct > player.MaxTerritoryPct)
             player.MaxTerritoryPct = pct;
+    }
+
+    public void MarkDisconnected(string playerId)
+    {
+        if (Players.TryGetValue(playerId, out var player))
+        {
+            player.IsDisconnected = true;
+            player.DisconnectedAtTick = _tick;
+        }
     }
 }
