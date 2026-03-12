@@ -9,6 +9,7 @@ interface Props {
   token: string;
   roomId?: string;
   onDisconnect: () => void;
+  onProfile?: () => void;
 }
 
 interface DeathInfo {
@@ -16,7 +17,7 @@ interface DeathInfo {
   killedBy: string | null;
 }
 
-export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
+export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [death, setDeath] = useState<DeathInfo | null>(null);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
@@ -83,6 +84,7 @@ export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
           reason={death.reason}
           killedBy={death.killedBy}
           onRespawn={handleRespawn}
+          onProfile={onProfile}
         />
       )}
     </div>

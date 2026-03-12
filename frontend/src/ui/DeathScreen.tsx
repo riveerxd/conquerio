@@ -2,9 +2,10 @@ interface Props {
   reason: string;
   killedBy: string | null;
   onRespawn: () => void;
+  onProfile?: () => void;
 }
 
-export default function DeathScreen({ reason, killedBy, onRespawn }: Props) {
+export default function DeathScreen({ reason, killedBy, onRespawn, onProfile }: Props) {
   return (
     <div style={styles.overlay}>
       <div style={styles.box}>
@@ -15,6 +16,11 @@ export default function DeathScreen({ reason, killedBy, onRespawn }: Props) {
         <button onClick={onRespawn} style={styles.button}>
           respawn
         </button>
+        {onProfile && (
+          <button onClick={onProfile} style={styles.statsLink}>
+            my stats
+          </button>
+        )}
       </div>
     </div>
   );
@@ -52,5 +58,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "monospace",
     cursor: "pointer",
     fontWeight: "bold",
+  },
+  statsLink: {
+    display: "block",
+    background: "none",
+    border: "none",
+    color: "#666",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontFamily: "monospace",
+    marginTop: "12px",
   },
 };
