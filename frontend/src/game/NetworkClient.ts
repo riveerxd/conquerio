@@ -62,6 +62,10 @@ export class NetworkClient {
     this.onStateUpdateCb = cb;
   }
 
+  offStateUpdate() {
+    this.onStateUpdateCb = null;
+  }
+
   getState(): GameState | null {
     if (!this.latestState) return null;
     return {

@@ -6,7 +6,6 @@ import { fetchLeaderboard, type LeaderboardEntry } from "../api/leaderboard";
 
 interface Props {
     networkClient: NetworkClient;
-    token: string;
 }
 
 interface LiveRow {
@@ -36,17 +35,30 @@ function computeTerritoryPct(state: GameState): Map<number, number> {
     return pctMap;
 }
 
-export default function Leaderboard({ networkClient, token }: Props) {
+/** Build a userId → LeaderboardEntry lookup for O(1) matching. */
+function buildEloMap(entries: LeaderboardEntry[]): Map<string, LeaderboardEntry> {
+    const map = new Map<string, LeaderboardEntry>();
+    for (const e of entries) {
+        map.set(e.userId, e);
+    }
+    return map;
+}
+
+const DISPLAY_LIMIT = 8;
+const RENDER_INTERVAL_MS = 500; // ~2 Hz
+
+export default function Leaderboard({ networkClient }: Props) {
     const [rows, setRows] = useState<LiveRow[]>([]);
     const [myColorId, setMyColorId] = useState<number | null>(null);
     const eloDataRef = useRef<LeaderboardEntry[]>([]);
+    const lastRenderRef = useRef<number>(0);
 
     // Fetch Elo data every 30 s
     useEffect(() => {
         let cancelled = false;
         const load = async () => {
             try {
-                const data = await fetchLeaderboard(10);
+                const data = await fetchLeaderboard(DISPLAY_LIMIT);
                 if (!cancelled) eloDataRef.current = data;
             } catch {
                 // silently ignore – Elo is supplementary
@@ -58,23 +70,28 @@ export default function Leaderboard({ networkClient, token }: Props) {
             cancelled = true;
             clearInterval(id);
         };
-    }, [token]);
+    }, []);
 
     // Subscribe to game state ticks
     useEffect(() => {
-        const unsub = (state: GameState) => {
+        const handler = (state: GameState) => {
+            // Throttle React state updates to ~2 Hz
+            const now = performance.now();
+            if (now - lastRenderRef.current < RENDER_INTERVAL_MS) return;
+            lastRenderRef.current = now;
+
             // Discover our own colorId from myPlayerId
             const me = state.players.find((p) => p.id === state.myPlayerId);
             if (me) setMyColorId(me.colorId);
 
             const pctMap = computeTerritoryPct(state);
+            const eloMap = buildEloMap(eloDataRef.current);
 
-            // Build one row per alive player
+            // Build one row per alive player, matching Elo by userId
             const livePlayers = state.players.filter((p) => p.alive);
 
             const built: LiveRow[] = livePlayers.map((p) => {
-                // Try to match with Elo data (by colorId index order – best effort)
-                const eloEntry = eloDataRef.current[livePlayers.indexOf(p)] ?? null;
+                const eloEntry = eloMap.get(p.id) ?? null;
                 return {
                     colorId: p.colorId,
                     playerId: p.id,
@@ -94,10 +111,9 @@ export default function Leaderboard({ networkClient, token }: Props) {
             setRows(built);
         };
 
-        networkClient.onStateUpdate(unsub);
+        networkClient.onStateUpdate(handler);
         return () => {
-            // Remove listener (set to no-op)
-            networkClient.onStateUpdate(() => { });
+            networkClient.offStateUpdate();
         };
     }, [networkClient]);
 
@@ -105,8 +121,8 @@ export default function Leaderboard({ networkClient, token }: Props) {
 
     return (
         <div style={styles.container}>
-            <div style={styles.header}>🏆 Leaderboard</div>
-            {rows.slice(0, 8).map((row) => {
+            <div style={styles.header}>Leaderboard</div>
+            {rows.slice(0, DISPLAY_LIMIT).map((row) => {
                 const isMe = row.colorId === myColorId;
                 return (
                     <div key={row.playerId} style={{ ...styles.row, ...(isMe ? styles.myRow : {}) }}>

@@ -60,7 +60,7 @@ export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <canvas ref={canvasRef} style={{ display: "block" }} />
       {networkClient && (
-        <Leaderboard networkClient={networkClient} token={token} />
+        <Leaderboard networkClient={networkClient} />
       )}
     </div>
   );
