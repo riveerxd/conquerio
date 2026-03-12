@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using conquerio.Game.Messages;
+using Serilog;
 
 namespace conquerio.Game;
 
@@ -35,10 +36,17 @@ public class GameRoom
         Grid = new byte[GridWidth, GridHeight];
     }
 
-    public bool IsFull => Players.Count >= MaxPlayers;
+    public bool IsFull => Players.Values.Count(p => p.IsAlive) >= MaxPlayers;
 
     public PlayerState AddPlayer(string playerId, string username, System.Net.WebSockets.WebSocket socket)
     {
+        if (Players.TryGetValue(playerId, out var existing) && existing.IsAlive)
+        {
+            existing.Socket = socket;
+            existing.IsDisconnected = false;
+            return existing;
+        }
+
         var colorId = _nextColorId++;
         var spawnX = _rng.Next(20, GridWidth - 20);
         var spawnY = _rng.Next(20, GridHeight - 20);
@@ -72,12 +80,20 @@ public class GameRoom
         };
 
         Players[playerId] = player;
+
+        Log.Information("Player {PlayerId} joined room {RoomId}. Current players: {PlayerCount}. Metric: PlayersPerRoom",
+            playerId, RoomId, Players.Count);
+
         return player;
     }
 
     public void RemovePlayer(string playerId)
     {
-        Players.TryRemove(playerId, out _);
+        if (Players.TryRemove(playerId, out _))
+        {
+            Log.Information("Player {PlayerId} left room {RoomId}. Remaining players: {PlayerCount}. Metric: PlayersPerRoom",
+                playerId, RoomId, Players.Count);
+        }
     }
 
     public bool TryKillPlayer(string playerId, string? killerId, string cause)
@@ -92,6 +108,15 @@ public class GameRoom
     {
         _tick++;
         _gridDiff.Clear();
+
+        // Expire grace periods
+        foreach (var p in Players.Values)
+        {
+            if (p.IsAlive && p.IsDisconnected && (_tick - p.DisconnectedAtTick) > (TickRate * 10))
+            {
+                KillPlayer(p, null, "timeout");
+            }
+        }
 
         while (InputQueue.TryDequeue(out var input))
         {
@@ -116,7 +141,7 @@ public class GameRoom
         // Collisions are checked against pre-movement positions for fairness in simultaneous edge cases.
         foreach (var p in Players.Values)
         {
-            if (!p.IsAlive) continue;
+            if (!p.IsAlive || p.IsDisconnected) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
 
@@ -253,11 +278,13 @@ public class GameRoom
             .Select(ps => new PlayerDto
             {
                 Id = ps.PlayerId,
+                Username = ps.Username,
                 X = ps.X,
                 Y = ps.Y,
                 Dir = ps.Direction.ToString().ToLower(),
                 Trail = ps.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
                 Alive = ps.IsAlive,
+                Disconnected = ps.IsDisconnected,
                 ColorId = ps.ColorId,
                 SpeedMultiplier = ps.SpeedMultiplier
             })
@@ -314,6 +341,13 @@ public class GameRoom
             player.Trail.Clear();
         }
 
+        var duration = DateTime.UtcNow - player.StartedAt;
+        Log.Information("Player {PlayerId} died in room {RoomId} after {DurationSeconds}s. Cause: {Cause}. Metric: GameDuration",
+            player.PlayerId, RoomId, duration.TotalSeconds, cause);
+
+        Log.Information("Death in room {RoomId}. Victim: {PlayerId}, Killer: {KillerId}, Cause: {Cause}. Metric: Death",
+            RoomId, player.PlayerId, killerId ?? "N/A", cause);
+
         var evt = new PlayerDeathEvent(
             victimId: player.PlayerId,
             killerId: killerId,
@@ -367,10 +401,22 @@ public class GameRoom
 
         player.Trail.Clear();
 
+        Log.Information("Player {PlayerId} claimed {CellCount} cells in room {RoomId}. Metric: TerritoryClaimed",
+            player.PlayerId, newlyOwned, RoomId);
+
         // update best territory percentage incrementally
         player.OwnedCells += newlyOwned;
         var pct = player.OwnedCells * 100f / TotalCells;
         if (pct > player.MaxTerritoryPct)
             player.MaxTerritoryPct = pct;
+    }
+
+    public void MarkDisconnected(string playerId)
+    {
+        if (Players.TryGetValue(playerId, out var player))
+        {
+            player.IsDisconnected = true;
+            player.DisconnectedAtTick = _tick;
+        }
     }
 }

@@ -178,7 +178,7 @@ public static class WebSocketEndpoints
             catch (WebSocketException) { } // client disconnected
             finally
             {
-                room.TryKillPlayer(userId, killerId: null, cause: "disconnect");
+                room.MarkDisconnected(userId);
                 room.PlayerDied -= OnPlayerDied;
 
                 deathEvents.Writer.TryComplete();
@@ -191,8 +191,15 @@ public static class WebSocketEndpoints
                     logger.LogError(ex, "Death persistence worker failed for user {UserId}", userId);
                 }
 
-                room.RemovePlayer(userId);
-                if (room.Players.IsEmpty)
+                // Wait a bit to see if they actually timed out before checking if room should be marked empty
+                await Task.Delay(11000);
+
+                if (room.Players.TryGetValue(userId, out var p) && !p.IsAlive)
+                {
+                    room.RemovePlayer(userId);
+                }
+
+                if (room.Players.Values.All(ps => ps.IsDisconnected || !ps.IsAlive))
                     roomManager.MarkEmpty(room.RoomId);
             }
         });
@@ -205,6 +212,25 @@ public static class WebSocketEndpoints
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // Fetch current Elo from Leaderboard (default 1000)
+        var victimEntry = await db.Leaderboard
+            .FirstOrDefaultAsync(lb => lb.UserId == evt.VictimId);
+        int victimOldElo = victimEntry?.Elo ?? 1000;
+
+        int? killerOldElo = null;
+        if (!string.IsNullOrEmpty(evt.KillerId))
+        {
+            var killerEntry = await db.Leaderboard
+                .FirstOrDefaultAsync(lb => lb.UserId == evt.KillerId);
+            killerOldElo = killerEntry?.Elo ?? 1000;
+        }
+
+        // Calculate new Elo
+        var (victimNewElo, killerNewElo) = EloCalculator.Calculate(
+            victimOldElo,
+            killerOldElo,
+            evt.MaxTerritoryPct);
 
         try
         {
@@ -226,7 +252,14 @@ public static class WebSocketEndpoints
 
         try
         {
-            await UpsertPlayerStatsAsync(db, evt);
+            await UpsertPlayerStatsAsync(db, evt.VictimId, evt.Kills, evt.MaxTerritoryPct, victimNewElo);
+            if (!string.IsNullOrEmpty(evt.KillerId) && killerNewElo.HasValue)
+            {
+                // For killer, we only update Elo (kills/deaths are handled when they die, or maybe we want to increment kills here).
+                // Usually kills are incremented in real-time or when the game session ends.
+                // Let's increment kills for the killer now!
+                await UpsertPlayerStatsAsync(db, evt.KillerId, killsInc: 1, maxPct: 0, newElo: killerNewElo.Value, isDeath: false);
+            }
         }
         catch (Exception ex)
         {
@@ -235,7 +268,11 @@ public static class WebSocketEndpoints
 
         try
         {
-            await UpsertLeaderboardAsync(db, evt);
+            await UpsertLeaderboardAsync(db, evt.VictimId, evt.MaxTerritoryPct, victimNewElo);
+            if (!string.IsNullOrEmpty(evt.KillerId) && killerNewElo.HasValue)
+            {
+                await UpsertLeaderboardAsync(db, evt.KillerId, maxPct: 0, newElo: killerNewElo.Value);
+            }
         }
         catch (Exception ex)
         {
@@ -243,29 +280,35 @@ public static class WebSocketEndpoints
         }
     }
 
-    private static async Task UpsertPlayerStatsAsync(AppDbContext db, PlayerDeathEvent evt)
+    private static async Task UpsertPlayerStatsAsync(
+        AppDbContext db,
+        string userId,
+        int killsInc,
+        float maxPct,
+        int newElo,
+        bool isDeath = true)
     {
         int statsUpdated = await db.PlayerStats
-            .Where(ps => ps.UserId == evt.VictimId)
+            .Where(ps => ps.UserId == userId)
             .ExecuteUpdateAsync(s => s
-                .SetProperty(ps => ps.TotalGames, ps => ps.TotalGames + 1)
-                .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + evt.Kills)
-                .SetProperty(ps => ps.TotalDeaths, ps => ps.TotalDeaths + 1)
+                .SetProperty(ps => ps.TotalGames, ps => isDeath ? ps.TotalGames + 1 : ps.TotalGames)
+                .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + killsInc)
+                .SetProperty(ps => ps.TotalDeaths, ps => isDeath ? ps.TotalDeaths + 1 : ps.TotalDeaths)
+                .SetProperty(ps => ps.Elo, ps => newElo)
                 .SetProperty(ps => ps.BestTerritoryPct,
-                    ps => evt.MaxTerritoryPct > ps.BestTerritoryPct
-                        ? evt.MaxTerritoryPct
-                        : ps.BestTerritoryPct));
+                    ps => maxPct > ps.BestTerritoryPct ? maxPct : ps.BestTerritoryPct));
 
         if (statsUpdated != 0)
             return;
 
         db.PlayerStats.Add(new PlayerStats
         {
-            UserId = evt.VictimId,
-            TotalGames = 1,
-            TotalKills = evt.Kills,
-            TotalDeaths = 1,
-            BestTerritoryPct = evt.MaxTerritoryPct
+            UserId = userId,
+            TotalGames = isDeath ? 1 : 0,
+            TotalKills = killsInc,
+            TotalDeaths = isDeath ? 1 : 0,
+            Elo = newElo,
+            BestTerritoryPct = maxPct
         });
 
         try
@@ -274,40 +317,36 @@ public static class WebSocketEndpoints
         }
         catch (DbUpdateException)
         {
-            // A concurrent handler inserted the row first - detach and update instead.
             db.ChangeTracker.Clear();
             await db.PlayerStats
-                .Where(ps => ps.UserId == evt.VictimId)
+                .Where(ps => ps.UserId == userId)
                 .ExecuteUpdateAsync(s => s
-                    .SetProperty(ps => ps.TotalGames, ps => ps.TotalGames + 1)
-                    .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + evt.Kills)
-                    .SetProperty(ps => ps.TotalDeaths, ps => ps.TotalDeaths + 1)
+                    .SetProperty(ps => ps.TotalGames, ps => isDeath ? ps.TotalGames + 1 : ps.TotalGames)
+                    .SetProperty(ps => ps.TotalKills, ps => ps.TotalKills + killsInc)
+                    .SetProperty(ps => ps.TotalDeaths, ps => isDeath ? ps.TotalDeaths + 1 : ps.TotalDeaths)
+                    .SetProperty(ps => ps.Elo, ps => newElo)
                     .SetProperty(ps => ps.BestTerritoryPct,
-                        ps => evt.MaxTerritoryPct > ps.BestTerritoryPct
-                            ? evt.MaxTerritoryPct
-                            : ps.BestTerritoryPct));
+                        ps => maxPct > ps.BestTerritoryPct ? maxPct : ps.BestTerritoryPct));
         }
     }
 
-    private static async Task UpsertLeaderboardAsync(AppDbContext db, PlayerDeathEvent evt)
+    private static async Task UpsertLeaderboardAsync(AppDbContext db, string userId, float maxPct, int newElo)
     {
-        // TODO: update Elo based on game performance once Elo calculation is implemented.
         int lbUpdated = await db.Leaderboard
-            .Where(lb => lb.UserId == evt.VictimId)
+            .Where(lb => lb.UserId == userId)
             .ExecuteUpdateAsync(s => s
+                .SetProperty(lb => lb.Elo, lb => newElo)
                 .SetProperty(lb => lb.BestPct,
-                    lb => evt.MaxTerritoryPct > lb.BestPct
-                        ? evt.MaxTerritoryPct
-                        : lb.BestPct));
+                    lb => maxPct > lb.BestPct ? maxPct : lb.BestPct));
 
         if (lbUpdated != 0)
             return;
 
         db.Leaderboard.Add(new Leaderboard
         {
-            UserId = evt.VictimId,
-            // TODO: set initial Elo once Elo calculation is implemented.
-            BestPct = evt.MaxTerritoryPct
+            UserId = userId,
+            Elo = newElo,
+            BestPct = maxPct
         });
 
         try
@@ -316,15 +355,13 @@ public static class WebSocketEndpoints
         }
         catch (DbUpdateException)
         {
-            // A concurrent handler inserted the row first - detach and update instead.
             db.ChangeTracker.Clear();
             await db.Leaderboard
-                .Where(lb => lb.UserId == evt.VictimId)
+                .Where(lb => lb.UserId == userId)
                 .ExecuteUpdateAsync(s => s
+                    .SetProperty(lb => lb.Elo, lb => newElo)
                     .SetProperty(lb => lb.BestPct,
-                        lb => evt.MaxTerritoryPct > lb.BestPct
-                            ? evt.MaxTerritoryPct
-                            : lb.BestPct));
+                        lb => maxPct > lb.BestPct ? maxPct : lb.BestPct));
         }
     }
 

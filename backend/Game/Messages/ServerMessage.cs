@@ -28,11 +28,13 @@ public class StateMessage
 public class PlayerDto
 {
     public required string Id { get; set; }
+    public required string Username { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
     public required string Dir { get; set; }
     public required List<int[]> Trail { get; set; }
     public bool Alive { get; set; }
+    public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
     public float SpeedMultiplier { get; set; }
 }

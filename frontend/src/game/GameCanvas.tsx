@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { NetworkClient } from "./NetworkClient";
 import { GameLoop } from "./GameLoop";
 import { InputHandler } from "./InputHandler";
+import DeathScreen from "../ui/DeathScreen";
 import Leaderboard from "../ui/Leaderboard";
 
 interface Props {
@@ -10,9 +11,23 @@ interface Props {
   onDisconnect: () => void;
 }
 
+interface DeathInfo {
+  reason: string;
+  killedBy: string | null;
+}
+
 export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [death, setDeath] = useState<DeathInfo | null>(null);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+
+  // Bumping this key tears down the entire effect and reconnects
+  const [sessionKey, setSessionKey] = useState(0);
+
+  const handleRespawn = useCallback(() => {
+    setDeath(null);
+    setSessionKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,8 +50,9 @@ export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
       setNetworkClient(network);
     });
 
-    network.onDeath(() => {
-      // TODO: show death screen
+    network.onDeath((msg) => {
+      gameLoop.stop();
+      setDeath({ reason: msg.reason, killedBy: msg.killedBy });
     });
 
     let intentionalDisconnect = false;
@@ -54,13 +70,20 @@ export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
       network.disconnect();
       setNetworkClient(null);
     };
-  }, [token, roomId, onDisconnect]);
+  }, [token, roomId, onDisconnect, sessionKey]);
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <canvas ref={canvasRef} style={{ display: "block" }} />
       {networkClient && (
         <Leaderboard networkClient={networkClient} />
+      )}
+      {death && (
+        <DeathScreen
+          reason={death.reason}
+          killedBy={death.killedBy}
+          onRespawn={handleRespawn}
+        />
       )}
     </div>
   );
