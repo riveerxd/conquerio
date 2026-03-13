@@ -306,13 +306,41 @@ public class GameRoom
         }
     }
 
-    public byte[] GetFlatGrid()
+    public byte[] GetRleGrid()
     {
-        var flat = new byte[GridWidth * GridHeight];
-        for (var y = 0; y < GridHeight; y++)
-        for (var x = 0; x < GridWidth; x++)
-            flat[y * GridWidth + x] = Grid[x, y];
-        return flat;
+        // reuse a buffer or at least pool it if possible - for now, simple RLE encoding
+        // Format: [count_byte, value_byte, count_byte, value_byte, ...]
+        // since count is a byte, max run is 255.
+        // In most cases, a 200x200 grid (40000 cells) will compress significantly.
+        var result = new System.Collections.Generic.List<byte>(1024);
+
+        byte lastValue = Grid[0, 0];
+        int count = 0;
+
+        for (int y = 0; y < GridHeight; y++)
+        {
+            for (int x = 0; x < GridWidth; x++)
+            {
+                byte current = Grid[x, y];
+                if (current == lastValue && count < 255)
+                {
+                    count++;
+                }
+                else
+                {
+                    result.Add((byte)count);
+                    result.Add(lastValue);
+                    lastValue = current;
+                    count = 1;
+                }
+            }
+        }
+
+        // add final run
+        result.Add((byte)count);
+        result.Add(lastValue);
+
+        return result.ToArray();
     }
 
     private static (int dx, int dy) GetDelta(Direction dir) => dir switch

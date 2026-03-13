@@ -12,7 +12,12 @@ public class JoinedMessage
     public int GridWidth { get; set; }
     public int GridHeight { get; set; }
     public int TickRate { get; set; }
-    public required byte[] Grid { get; set; }
+
+    /// <summary>
+    /// Run-length encoded grid data.
+    /// Format: [count, value, count, value, ...]
+    /// </summary>
+    public required byte[] RleGrid { get; set; }
 }
 
 public class StateMessage

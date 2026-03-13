@@ -33,7 +33,7 @@ export interface JoinedMessage {
   gridWidth: number;
   gridHeight: number;
   tickRate: number;
-  grid: number[];
+  rleGrid: number[];
 }
 
 export interface StateMessage {
