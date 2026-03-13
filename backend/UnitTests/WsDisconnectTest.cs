@@ -8,7 +8,7 @@ public class WsDisconnectTest : WsTestBase
     public WsDisconnectTest(GameFactory factory) : base(factory) { }
 
     [Fact]
-    public async Task Disconnect_PlayerRemovedFromRoom()
+    public async Task Disconnect_PlayerMarkedDisconnected()
     {
         var uid = UniqueId();
         var token = await RegisterAndGetToken($"disc_{uid}", $"disc_{uid}@test.com", "Pass123!");
@@ -18,12 +18,15 @@ public class WsDisconnectTest : WsTestBase
         var playerId = joined.GetProperty("playerId").GetString()!;
 
         var manager = Factory.Services.GetRequiredService<GameRoomManager>();
-        Assert.NotNull(manager.FindRoomForPlayer(playerId));
+        var room = manager.FindRoomForPlayer(playerId);
+        Assert.NotNull(room);
+        Assert.False(room!.Players[playerId].IsDisconnected);
 
         await CloseWs(ws);
 
-        await WaitUntil(() => manager.FindRoomForPlayer(playerId) == null);
+        // player gets marked disconnected (not removed - there's a grace period)
+        await WaitUntil(() => room.Players[playerId].IsDisconnected);
 
-        Assert.Null(manager.FindRoomForPlayer(playerId));
+        Assert.True(room.Players[playerId].IsDisconnected);
     }
 }
