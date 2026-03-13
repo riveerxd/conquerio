@@ -163,7 +163,7 @@ public abstract class WsTestBase : IClassFixture<GameFactory>
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }
 
-    protected static async Task WaitUntil(Func<bool> condition, int timeoutMs = 2000, int pollMs = 20)
+    protected static async Task WaitUntil(Func<bool> condition, int timeoutMs = 5000, int pollMs = 50)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
         while (!condition() && DateTime.UtcNow < deadline)

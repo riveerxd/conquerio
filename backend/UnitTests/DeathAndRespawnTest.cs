@@ -8,7 +8,7 @@ public class DeathAndRespawnTest : WsTestBase
     public DeathAndRespawnTest(GameFactory factory) : base(factory) { }
 
     [Fact]
-    public async Task SelfTrailCollision_SendsDeathMessage()
+    public async Task SelfTrailCollision_ClaimsTerritory_WhenConnectedToBase()
     {
         var uid = UniqueId();
         var token = await RegisterAndGetToken($"die_{uid}", $"die_{uid}@test.com", "Pass123!");
@@ -20,10 +20,10 @@ public class DeathAndRespawnTest : WsTestBase
         var joined = await ReceiveMsg(ws);
         var playerId = joined.GetProperty("playerId").GetString()!;
         var player = room.Players[playerId];
+        var initialCells = player.OwnedCells;
 
-        // force player into a self-collision: right 5, down 3, left 3, up 3
-        // after 2 ticks right the player leaves 3x3 spawn territory and builds trail
-        // the up leg crosses the horizontal trail at the starting row
+        // make a loop that connects back to territory
+        // right 5, down 3, left 3, up 3 - this should claim territory not kill
         player.Direction = Direction.Right;
         for (int i = 0; i < 5; i++) room.Tick();
 
@@ -36,8 +36,9 @@ public class DeathAndRespawnTest : WsTestBase
         player.Direction = Direction.Up;
         for (int i = 0; i < 4; i++) room.Tick();
 
-        // player should now have hit its own trail and died
-        Assert.False(player.IsAlive);
+        // player should be alive and have claimed more territory
+        Assert.True(player.IsAlive);
+        Assert.True(player.OwnedCells > initialCells);
     }
 
     [Fact]
@@ -154,7 +155,7 @@ public class DeathAndRespawnTest : WsTestBase
     }
 
     [Fact]
-    public async Task Disconnect_KillsPlayer()
+    public async Task Disconnect_MarksPlayerDisconnected()
     {
         var uid = UniqueId();
         var token = await RegisterAndGetToken($"dkill_{uid}", $"dkill_{uid}@test.com", "Pass123!");
@@ -167,12 +168,13 @@ public class DeathAndRespawnTest : WsTestBase
         var playerId = joined.GetProperty("playerId").GetString()!;
 
         Assert.True(room.Players[playerId].IsAlive);
+        Assert.False(room.Players[playerId].IsDisconnected);
 
         await CloseWs(ws);
-        await WaitUntil(() => !room.Players.ContainsKey(playerId));
+        await WaitUntil(() => room.Players[playerId].IsDisconnected);
 
-        // player is removed after disconnect
-        Assert.False(room.Players.ContainsKey(playerId));
+        // player is marked disconnected (not immediately removed - grace period exists)
+        Assert.True(room.Players[playerId].IsDisconnected);
     }
 
     [Fact]
