@@ -21,12 +21,34 @@ export function getColor(colorId: number): string {
   return COLORS[colorId % COLORS.length] ?? COLORS[1];
 }
 
+/**
+ * Trail fill: solid player colour at 70% opacity so trails are clearly
+ * visible against the background but distinct from the player dot itself.
+ */
 export function getTrailColor(colorId: number): string {
-  const base = getColor(colorId);
-  return base + "88"; // semi-transparent
+  return getColor(colorId) + "b3"; // ~70 % opacity
 }
 
+/**
+ * Trail stroke / outline: full-opacity player colour for a crisp 1-px border
+ * that makes each trail segment feel defined and intentional.
+ */
+export function getTrailStrokeColor(colorId: number): string {
+  return getColor(colorId); // 100 % opacity
+}
+
+/**
+ * Claimed territory fill: 22% opacity — subtle wash so the grid is readable
+ * beneath the action and clearly lower-priority than trails.
+ */
 export function getTerritoryColor(colorId: number): string {
-  const base = getColor(colorId);
-  return base + "44"; // more transparent
+  return getColor(colorId) + "38"; // ~22 % opacity
+}
+
+/**
+ * Claimed territory border tint: 45% opacity used to draw a 1-px inner
+ * outline on territory cells, giving them shape without visual noise.
+ */
+export function getTerritoryBorderColor(colorId: number): string {
+  return getColor(colorId) + "73"; // ~45 % opacity
 }

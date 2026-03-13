@@ -2,6 +2,7 @@ export type Direction = "up" | "down" | "left" | "right";
 
 export interface Player {
   id: string;
+  username: string;
   x: number;
   y: number;
   dir: Direction;
@@ -32,7 +33,7 @@ export interface JoinedMessage {
   gridWidth: number;
   gridHeight: number;
   tickRate: number;
-  grid: number[];
+  rleGrid: number[];
 }
 
 export interface StateMessage {

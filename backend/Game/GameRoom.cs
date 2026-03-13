@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using conquerio.Game.Messages;
+using Serilog;
 
 namespace conquerio.Game;
 
@@ -35,10 +36,17 @@ public class GameRoom
         Grid = new byte[GridWidth, GridHeight];
     }
 
-    public bool IsFull => Players.Count >= MaxPlayers;
+    public bool IsFull => Players.Values.Count(p => p.IsAlive) >= MaxPlayers;
 
     public PlayerState AddPlayer(string playerId, string username, System.Net.WebSockets.WebSocket socket)
     {
+        if (Players.TryGetValue(playerId, out var existing) && existing.IsAlive)
+        {
+            existing.Socket = socket;
+            existing.IsDisconnected = false;
+            return existing;
+        }
+
         var colorId = _nextColorId++;
         var spawnX = _rng.Next(20, GridWidth - 20);
         var spawnY = _rng.Next(20, GridHeight - 20);
@@ -72,12 +80,20 @@ public class GameRoom
         };
 
         Players[playerId] = player;
+
+        Log.Information("Player {PlayerId} joined room {RoomId}. Current players: {PlayerCount}. Metric: PlayersPerRoom",
+            playerId, RoomId, Players.Count);
+
         return player;
     }
 
     public void RemovePlayer(string playerId)
     {
-        Players.TryRemove(playerId, out _);
+        if (Players.TryRemove(playerId, out _))
+        {
+            Log.Information("Player {PlayerId} left room {RoomId}. Remaining players: {PlayerCount}. Metric: PlayersPerRoom",
+                playerId, RoomId, Players.Count);
+        }
     }
 
     public bool TryKillPlayer(string playerId, string? killerId, string cause)
@@ -92,6 +108,15 @@ public class GameRoom
     {
         _tick++;
         _gridDiff.Clear();
+
+        // Expire grace periods
+        foreach (var p in Players.Values)
+        {
+            if (p.IsAlive && p.IsDisconnected && (_tick - p.DisconnectedAtTick) > (TickRate * 10))
+            {
+                KillPlayer(p, null, "timeout");
+            }
+        }
 
         while (InputQueue.TryDequeue(out var input))
         {
@@ -113,10 +138,10 @@ public class GameRoom
             }
         }
 
-        // Collisions are resolved in enumeration order, so simultaneous head-on cases are not symmetric.
+        // Collisions are checked against pre-movement positions for fairness in simultaneous edge cases.
         foreach (var p in Players.Values)
         {
-            if (!p.IsAlive) continue;
+            if (!p.IsAlive || p.IsDisconnected) continue;
 
             var (dx, dy) = GetDelta(p.Direction);
 
@@ -163,7 +188,15 @@ public class GameRoom
             // --- collision: self trail ---
             if (CollisionDetector.HitsSelfTrail(newX, newY, p))
             {
-                KillPlayer(p, killerId: null, "self");
+                // if the trail forms a closed loop that touches our territory, claim it
+                if (TrailConnectsToTerritory(p))
+                {
+                    ClaimTerritory(p);
+                }
+                else
+                {
+                    KillPlayer(p, killerId: null, "self");
+                }
                 continue;
             }
 
@@ -178,6 +211,17 @@ public class GameRoom
                 killer.Kills++;
                 KillPlayer(p, killer.PlayerId, "trail");
                 continue;
+            }
+
+            // --- collision: another player does not give kill credit ---
+            if (CollisionDetector.HitsPlayer(newX, newY, Players.Values, p.PlayerId))
+            {
+                var other = Players.Values.FirstOrDefault(o => o.PlayerId != p.PlayerId && o.X == newX && o.Y == newY);
+                if (other != null)
+                {
+                    KillPlayer(p, other.PlayerId, "Head-on");
+                    continue;
+                }
             }
 
             if (isOnTerritory && p.Trail.Count > 0)
@@ -210,10 +254,29 @@ public class GameRoom
                         }
                     }
                 }
-
-                BroadcastState();
             }
         }
+
+        // Check for players occupying the same position after movement (e.g., head-on collisions)
+        var positionCounts = new Dictionary<(int, int), List<PlayerState>>();
+        foreach (var p in Players.Values)
+        {
+            if (p.IsAlive)
+            {
+                var pos = (p.X, p.Y);
+                if (!positionCounts.ContainsKey(pos)) positionCounts[pos] = new List<PlayerState>();
+                positionCounts[pos].Add(p);
+            }
+        }
+        foreach (var group in positionCounts.Values.Where(g => g.Count > 1))
+        {
+            foreach (var p in group)
+            {
+                KillPlayer(p, null, "collision");
+            }
+        }
+
+        BroadcastState();
     }
 
     private void BroadcastState()
@@ -223,11 +286,13 @@ public class GameRoom
             .Select(ps => new PlayerDto
             {
                 Id = ps.PlayerId,
+                Username = ps.Username,
                 X = ps.X,
                 Y = ps.Y,
                 Dir = ps.Direction.ToString().ToLower(),
                 Trail = ps.Trail.Select(t => new[] { t.X, t.Y }).ToList(),
                 Alive = ps.IsAlive,
+                Disconnected = ps.IsDisconnected,
                 ColorId = ps.ColorId,
                 SpeedMultiplier = ps.SpeedMultiplier
             })
@@ -249,13 +314,41 @@ public class GameRoom
         }
     }
 
-    public byte[] GetFlatGrid()
+    public byte[] GetRleGrid()
     {
-        var flat = new byte[GridWidth * GridHeight];
-        for (var y = 0; y < GridHeight; y++)
-        for (var x = 0; x < GridWidth; x++)
-            flat[y * GridWidth + x] = Grid[x, y];
-        return flat;
+        // reuse a buffer or at least pool it if possible - for now, simple RLE encoding
+        // Format: [count_byte, value_byte, count_byte, value_byte, ...]
+        // since count is a byte, max run is 255.
+        // In most cases, a 200x200 grid (40000 cells) will compress significantly.
+        var result = new System.Collections.Generic.List<byte>(1024);
+
+        byte lastValue = Grid[0, 0];
+        int count = 0;
+
+        for (int y = 0; y < GridHeight; y++)
+        {
+            for (int x = 0; x < GridWidth; x++)
+            {
+                byte current = Grid[x, y];
+                if (current == lastValue && count < 255)
+                {
+                    count++;
+                }
+                else
+                {
+                    result.Add((byte)count);
+                    result.Add(lastValue);
+                    lastValue = current;
+                    count = 1;
+                }
+            }
+        }
+
+        // add final run
+        result.Add((byte)count);
+        result.Add(lastValue);
+
+        return result.ToArray();
     }
 
     private static (int dx, int dy) GetDelta(Direction dir) => dir switch
@@ -283,6 +376,13 @@ public class GameRoom
             player.IsAlive = false;
             player.Trail.Clear();
         }
+
+        var duration = DateTime.UtcNow - player.StartedAt;
+        Log.Information("Player {PlayerId} died in room {RoomId} after {DurationSeconds}s. Cause: {Cause}. Metric: GameDuration",
+            player.PlayerId, RoomId, duration.TotalSeconds, cause);
+
+        Log.Information("Death in room {RoomId}. Victim: {PlayerId}, Killer: {KillerId}, Cause: {Cause}. Metric: Death",
+            RoomId, player.PlayerId, killerId ?? "N/A", cause);
 
         var evt = new PlayerDeathEvent(
             victimId: player.PlayerId,
@@ -337,10 +437,36 @@ public class GameRoom
 
         player.Trail.Clear();
 
+        Log.Information("Player {PlayerId} claimed {CellCount} cells in room {RoomId}. Metric: TerritoryClaimed",
+            player.PlayerId, newlyOwned, RoomId);
+
         // update best territory percentage incrementally
         player.OwnedCells += newlyOwned;
         var pct = player.OwnedCells * 100f / TotalCells;
         if (pct > player.MaxTerritoryPct)
             player.MaxTerritoryPct = pct;
+    }
+
+    public void MarkDisconnected(string playerId)
+    {
+        if (Players.TryGetValue(playerId, out var player))
+        {
+            player.IsDisconnected = true;
+            player.DisconnectedAtTick = _tick;
+        }
+    }
+
+    private bool TrailConnectsToTerritory(PlayerState player)
+    {
+        // check if any point in the trail is adjacent to player's territory
+        foreach (var (tx, ty) in player.Trail)
+        {
+            // check all 4 neighbors
+            if (tx > 0 && Grid[tx - 1, ty] == player.ColorId) return true;
+            if (tx < GridWidth - 1 && Grid[tx + 1, ty] == player.ColorId) return true;
+            if (ty > 0 && Grid[tx, ty - 1] == player.ColorId) return true;
+            if (ty < GridHeight - 1 && Grid[tx, ty + 1] == player.ColorId) return true;
+        }
+        return false;
     }
 }

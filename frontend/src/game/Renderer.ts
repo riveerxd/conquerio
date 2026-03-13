@@ -1,5 +1,11 @@
 import { Camera } from "./Camera";
-import { getColor, getTerritoryColor, getTrailColor } from "./colors";
+import {
+  getColor,
+  getTerritoryColor,
+  getTerritoryBorderColor,
+  getTrailColor,
+  getTrailStrokeColor,
+} from "./colors";
 import type { Player, GameState } from "./types";
 
 export class Renderer {
@@ -28,6 +34,7 @@ export class Renderer {
   private drawGrid(state: GameState, canvasW: number, canvasH: number) {
     const bounds = this.camera.getVisibleBounds(canvasW, canvasH);
     const cs = this.camera.cellSize;
+    const ctx = this.ctx;
 
     for (let y = Math.max(0, bounds.minY); y < Math.min(state.gridHeight, bounds.maxY); y++) {
       for (let x = Math.max(0, bounds.minX); x < Math.min(state.gridWidth, bounds.maxX); x++) {
@@ -35,8 +42,15 @@ export class Renderer {
         if (colorId === 0) continue;
 
         const { sx, sy } = this.camera.worldToScreen(x, y, canvasW, canvasH);
-        this.ctx.fillStyle = getTerritoryColor(colorId);
-        this.ctx.fillRect(sx, sy, cs, cs);
+
+        // Fill: low-opacity wash for the claimed territory
+        ctx.fillStyle = getTerritoryColor(colorId);
+        ctx.fillRect(sx, sy, cs, cs);
+
+        // Inner 1-px border: slightly higher opacity to give each cell definition
+        ctx.strokeStyle = getTerritoryBorderColor(colorId);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sx + 0.5, sy + 0.5, cs - 1, cs - 1);
       }
     }
   }
@@ -77,14 +91,24 @@ export class Renderer {
 
   private drawTrails(players: Player[], canvasW: number, canvasH: number) {
     const cs = this.camera.cellSize;
+    const ctx = this.ctx;
 
     for (const p of players) {
       if (p.trail.length === 0) continue;
 
-      this.ctx.fillStyle = getTrailColor(p.colorId);
+      // Fill all trail cells first (single style swap)
+      ctx.fillStyle = getTrailColor(p.colorId);
       for (const [tx, ty] of p.trail) {
         const { sx, sy } = this.camera.worldToScreen(tx, ty, canvasW, canvasH);
-        this.ctx.fillRect(sx, sy, cs, cs);
+        ctx.fillRect(sx, sy, cs, cs);
+      }
+
+      // Crisp 1-px stroke over each trail cell for a sharp, defined look
+      ctx.strokeStyle = getTrailStrokeColor(p.colorId);
+      ctx.lineWidth = 1;
+      for (const [tx, ty] of p.trail) {
+        const { sx, sy } = this.camera.worldToScreen(tx, ty, canvasW, canvasH);
+        ctx.strokeRect(sx + 0.5, sy + 0.5, cs - 1, cs - 1);
       }
     }
   }
@@ -99,12 +123,10 @@ export class Renderer {
 
       this.ctx.fillStyle = getColor(p.colorId);
       this.ctx.fillRect(sx + 1, sy + 1, cs - 2, cs - 2);
-
-      // TODO: show actual username instead of id
       this.ctx.fillStyle = "#fff";
       this.ctx.font = "12px monospace";
       this.ctx.textAlign = "center";
-      const label = p.id === myId ? "you" : p.id.slice(0, 6);
+      const label = p.id === myId ? "you" : p.username;
       this.ctx.fillText(label, sx + cs / 2, sy - 4);
     }
   }
@@ -137,6 +159,20 @@ export class Renderer {
           my + y * scaleY,
           Math.ceil(scaleX),
           Math.ceil(scaleY)
+        );
+      }
+    }
+
+    // trail cells on minimap — use a brighter shade so they remain legible
+    for (const p of players) {
+      if (p.trail.length === 0) continue;
+      ctx.fillStyle = getTrailColor(p.colorId);
+      for (const [tx, ty] of p.trail) {
+        ctx.fillRect(
+          mx + tx * scaleX,
+          my + ty * scaleY,
+          Math.ceil(scaleX) + 1,
+          Math.ceil(scaleY) + 1
         );
       }
     }

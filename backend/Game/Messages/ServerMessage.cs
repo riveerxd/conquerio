@@ -12,7 +12,12 @@ public class JoinedMessage
     public int GridWidth { get; set; }
     public int GridHeight { get; set; }
     public int TickRate { get; set; }
-    public required byte[] Grid { get; set; }
+
+    /// <summary>
+    /// Run-length encoded grid data.
+    /// Format: [count, value, count, value, ...]
+    /// </summary>
+    public required byte[] RleGrid { get; set; }
 }
 
 public class StateMessage
@@ -28,11 +33,13 @@ public class StateMessage
 public class PlayerDto
 {
     public required string Id { get; set; }
+    public required string Username { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
     public required string Dir { get; set; }
     public required List<int[]> Trail { get; set; }
     public bool Alive { get; set; }
+    public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
     public float SpeedMultiplier { get; set; }
 }

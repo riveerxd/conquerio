@@ -13,6 +13,7 @@ export class NetworkClient {
   private onDeathCb: ((msg: { killedBy: string | null; reason: string }) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
+  private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
 
   connect(token: string, roomId?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -55,6 +56,14 @@ export class NetworkClient {
 
   onDisconnect(cb: () => void) {
     this.onDisconnectCb = cb;
+  }
+
+  onStateUpdate(cb: (state: import("./types").GameState) => void) {
+    this.onStateUpdateCb = cb;
+  }
+
+  offStateUpdate() {
+    this.onStateUpdateCb = null;
   }
 
   getState(): GameState | null {
@@ -100,7 +109,23 @@ export class NetworkClient {
     this.gridWidth = msg.gridWidth;
     this.gridHeight = msg.gridHeight;
     this.tickRate = msg.tickRate;
-    this.grid = new Uint8Array(msg.grid);
+
+    // Decode RLE grid
+    this.grid = new Uint8Array(this.gridWidth * this.gridHeight);
+    let offset = 0;
+    for (let i = 0; i < msg.rleGrid.length; i += 2) {
+      const count = msg.rleGrid[i];
+      const value = msg.rleGrid[i + 1];
+      // Backend bug: count might be 0 for the first run if the first cell is different from the initial lastValue (0)
+      // but in GameRoom.cs:291 count starts at 0 and is incremented.
+      // We should handle count=0 just in case
+      for (let j = 0; j < count; j++) {
+        if (offset < this.grid.length) {
+          this.grid[offset++] = value;
+        }
+      }
+    }
+
     this.onJoinedCb?.();
   }
 
@@ -111,6 +136,11 @@ export class NetworkClient {
 
     for (const cell of msg.gridDiff) {
       this.grid[cell.y * this.gridWidth + cell.x] = cell.c;
+    }
+
+    if (this.onStateUpdateCb) {
+      const state = this.getState();
+      if (state) this.onStateUpdateCb(state);
     }
   }
 }
