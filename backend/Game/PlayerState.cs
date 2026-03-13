@@ -11,6 +11,7 @@ public class PlayerState
     public int Y { get; set; }
     public Direction Direction { get; set; } = Direction.Right;
     public bool IsAlive { get; set; } = true;
+    public bool Invulnerable { get; set; } = false;
     public byte ColorId { get; set; }
     public List<(int X, int Y)> Trail { get; set; } = new();
     public required WebSocket Socket { get; set; }
