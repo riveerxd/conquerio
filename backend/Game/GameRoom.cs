@@ -188,8 +188,8 @@ public class GameRoom
             // --- collision: self trail ---
             if (CollisionDetector.HitsSelfTrail(newX, newY, p))
             {
-                // if the trail forms a closed loop that touches our territory, claim it
-                if (TrailConnectsToTerritory(p))
+                // only claim if current position is adjacent to own territory (completing loop)
+                if (IsAdjacentToTerritory(newX, newY, p.ColorId))
                 {
                     ClaimTerritory(p);
                 }
@@ -377,6 +377,32 @@ public class GameRoom
             player.Trail.Clear();
         }
 
+        // send death message to the dying player
+        if (player.Socket.State == System.Net.WebSockets.WebSocketState.Open)
+        {
+            string? killerName = null;
+            if (killerId != null && Players.TryGetValue(killerId, out var killer))
+            {
+                killerName = killer.Username;
+            }
+            var deathMsg = new DeathMessage { KilledBy = killerName, Reason = cause };
+            _ = MessageSerializer.SendAsync(player.Socket, deathMsg);
+        }
+
+        // clear dead player's territory from the grid
+        for (int x = 0; x < GridWidth; x++)
+        {
+            for (int y = 0; y < GridHeight; y++)
+            {
+                if (Grid[x, y] == player.ColorId)
+                {
+                    Grid[x, y] = 0;
+                    _gridDiff.Add(new GridCell { X = x, Y = y, C = 0 });
+                }
+            }
+        }
+        player.OwnedCells = 0;
+
         var duration = DateTime.UtcNow - player.StartedAt;
         Log.Information("Player {PlayerId} died in room {RoomId} after {DurationSeconds}s. Cause: {Cause}. Metric: GameDuration",
             player.PlayerId, RoomId, duration.TotalSeconds, cause);
@@ -445,6 +471,17 @@ public class GameRoom
         var pct = player.OwnedCells * 100f / TotalCells;
         if (pct > player.MaxTerritoryPct)
             player.MaxTerritoryPct = pct;
+
+        // check if any other player is now completely surrounded (encirclement kill)
+        foreach (var other in Players.Values)
+        {
+            if (!other.IsAlive || other.PlayerId == player.PlayerId) continue;
+            if (IsEncircled(other, player.ColorId))
+            {
+                player.Kills++;
+                KillPlayer(other, player.PlayerId, "encircled");
+            }
+        }
     }
 
     public void MarkDisconnected(string playerId)
@@ -456,17 +493,54 @@ public class GameRoom
         }
     }
 
-    private bool TrailConnectsToTerritory(PlayerState player)
+    private bool IsAdjacentToTerritory(int x, int y, byte colorId)
     {
-        // check if any point in the trail is adjacent to player's territory
-        foreach (var (tx, ty) in player.Trail)
-        {
-            // check all 4 neighbors
-            if (tx > 0 && Grid[tx - 1, ty] == player.ColorId) return true;
-            if (tx < GridWidth - 1 && Grid[tx + 1, ty] == player.ColorId) return true;
-            if (ty > 0 && Grid[tx, ty - 1] == player.ColorId) return true;
-            if (ty < GridHeight - 1 && Grid[tx, ty + 1] == player.ColorId) return true;
-        }
+        // check if position is adjacent to player's territory
+        if (x > 0 && Grid[x - 1, y] == colorId) return true;
+        if (x < GridWidth - 1 && Grid[x + 1, y] == colorId) return true;
+        if (y > 0 && Grid[x, y - 1] == colorId) return true;
+        if (y < GridHeight - 1 && Grid[x, y + 1] == colorId) return true;
         return false;
+    }
+
+    private bool IsEncircled(PlayerState victim, byte attackerColorId)
+    {
+        // check if victim's territory is completely surrounded by attacker's territory
+        // flood fill from victim's position - if we can't reach the edge without
+        // crossing attacker's territory, victim is encircled
+        var visited = new bool[GridWidth, GridHeight];
+        var queue = new Queue<(int X, int Y)>();
+        queue.Enqueue((victim.X, victim.Y));
+        visited[victim.X, victim.Y] = true;
+
+        int[] dx = { 0, 0, -1, 1 };
+        int[] dy = { -1, 1, 0, 0 };
+
+        while (queue.Count > 0)
+        {
+            var (cx, cy) = queue.Dequeue();
+
+            // reached edge - not encircled
+            if (cx == 0 || cx == GridWidth - 1 || cy == 0 || cy == GridHeight - 1)
+                return false;
+
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+
+                if (nx < 0 || nx >= GridWidth || ny < 0 || ny >= GridHeight) continue;
+                if (visited[nx, ny]) continue;
+
+                // can't pass through attacker's territory
+                if (Grid[nx, ny] == attackerColorId) continue;
+
+                visited[nx, ny] = true;
+                queue.Enqueue((nx, ny));
+            }
+        }
+
+        // couldn't reach edge - encircled
+        return true;
     }
 }
