@@ -188,7 +188,15 @@ public class GameRoom
             // --- collision: self trail ---
             if (CollisionDetector.HitsSelfTrail(newX, newY, p))
             {
-                KillPlayer(p, killerId: null, "self");
+                // if the trail forms a closed loop that touches our territory, claim it
+                if (TrailConnectsToTerritory(p))
+                {
+                    ClaimTerritory(p);
+                }
+                else
+                {
+                    KillPlayer(p, killerId: null, "self");
+                }
                 continue;
             }
 
@@ -246,8 +254,6 @@ public class GameRoom
                         }
                     }
                 }
-
-                BroadcastState();
             }
         }
 
@@ -269,6 +275,8 @@ public class GameRoom
                 KillPlayer(p, null, "collision");
             }
         }
+
+        BroadcastState();
     }
 
     private void BroadcastState()
@@ -446,5 +454,19 @@ public class GameRoom
             player.IsDisconnected = true;
             player.DisconnectedAtTick = _tick;
         }
+    }
+
+    private bool TrailConnectsToTerritory(PlayerState player)
+    {
+        // check if any point in the trail is adjacent to player's territory
+        foreach (var (tx, ty) in player.Trail)
+        {
+            // check all 4 neighbors
+            if (tx > 0 && Grid[tx - 1, ty] == player.ColorId) return true;
+            if (tx < GridWidth - 1 && Grid[tx + 1, ty] == player.ColorId) return true;
+            if (ty > 0 && Grid[tx, ty - 1] == player.ColorId) return true;
+            if (ty < GridHeight - 1 && Grid[tx, ty + 1] == player.ColorId) return true;
+        }
+        return false;
     }
 }
