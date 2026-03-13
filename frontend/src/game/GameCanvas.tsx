@@ -3,6 +3,7 @@ import { NetworkClient } from "./NetworkClient";
 import { GameLoop } from "./GameLoop";
 import { InputHandler } from "./InputHandler";
 import DeathScreen from "../ui/DeathScreen";
+import Leaderboard from "../ui/Leaderboard";
 
 interface Props {
   token: string;
@@ -18,6 +19,7 @@ interface DeathInfo {
 export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [death, setDeath] = useState<DeathInfo | null>(null);
+  const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
 
   // Bumping this key tears down the entire effect and reconnects
   const [sessionKey, setSessionKey] = useState(0);
@@ -45,6 +47,7 @@ export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
     network.onJoined(() => {
       console.log("joined game");
       gameLoop.start();
+      setNetworkClient(network);
     });
 
     network.onDeath((msg) => {
@@ -65,12 +68,16 @@ export default function GameCanvas({ token, roomId, onDisconnect }: Props) {
       input.destroy();
       gameLoop.stop();
       network.disconnect();
+      setNetworkClient(null);
     };
   }, [token, roomId, onDisconnect, sessionKey]);
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <canvas ref={canvasRef} style={{ display: "block" }} />
+      {networkClient && (
+        <Leaderboard networkClient={networkClient} />
+      )}
       {death && (
         <DeathScreen
           reason={death.reason}
