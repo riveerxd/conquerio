@@ -377,6 +377,27 @@ public class GameRoom
             player.Trail.Clear();
         }
 
+        // send death message to the dying player
+        if (player.Socket.State == System.Net.WebSockets.WebSocketState.Open)
+        {
+            var deathMsg = new DeathMessage { KilledBy = killerId, Reason = cause };
+            _ = MessageSerializer.SendAsync(player.Socket, deathMsg);
+        }
+
+        // clear dead player's territory from the grid
+        for (int x = 0; x < GridWidth; x++)
+        {
+            for (int y = 0; y < GridHeight; y++)
+            {
+                if (Grid[x, y] == player.ColorId)
+                {
+                    Grid[x, y] = 0;
+                    _gridDiff.Add(new GridCell { X = x, Y = y, C = 0 });
+                }
+            }
+        }
+        player.OwnedCells = 0;
+
         var duration = DateTime.UtcNow - player.StartedAt;
         Log.Information("Player {PlayerId} died in room {RoomId} after {DurationSeconds}s. Cause: {Cause}. Metric: GameDuration",
             player.PlayerId, RoomId, duration.TotalSeconds, cause);
