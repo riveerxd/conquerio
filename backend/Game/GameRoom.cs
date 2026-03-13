@@ -301,7 +301,7 @@ public class GameRoom
                 Alive = ps.IsAlive,
                 Disconnected = ps.IsDisconnected,
                 ColorId = ps.ColorId,
-                SpeedMultiplier = ps.SpeedMultiplier,
+                SpeedMultiplier = (int)ps.SpeedMultiplier,
                 Abilities = playerAbilities
             });
         }
