@@ -380,7 +380,12 @@ public class GameRoom
         // send death message to the dying player
         if (player.Socket.State == System.Net.WebSockets.WebSocketState.Open)
         {
-            var deathMsg = new DeathMessage { KilledBy = killerId, Reason = cause };
+            string? killerName = null;
+            if (killerId != null && Players.TryGetValue(killerId, out var killer))
+            {
+                killerName = killer.Username;
+            }
+            var deathMsg = new DeathMessage { KilledBy = killerName, Reason = cause };
             _ = MessageSerializer.SendAsync(player.Socket, deathMsg);
         }
 
