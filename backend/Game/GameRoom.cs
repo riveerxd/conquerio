@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using conquerio.Game.Abilities;
 using conquerio.Game.Messages;
 using Serilog;
 
@@ -13,9 +14,6 @@ public class GameRoom
     public int TickRate { get; } = 20;
     public int MaxPlayers { get; } = 20;
     private int TotalCells => GridWidth * GridHeight;
-
-    public int BoostLengthSeconds { get; } = 3;
-    public int BoostCooldownLengthSeconds { get; } = 10;
 
     public byte[,] Grid { get; }
     public ConcurrentDictionary<string, PlayerState> Players { get; } = new();
@@ -79,6 +77,9 @@ public class GameRoom
             OwnedCells = spawnCells
         };
 
+        player.Abilities.Add(new BoostAbility(this, player));
+        player.Abilities.Add(new ShieldAbility(this, player));
+
         Players[playerId] = player;
 
         Log.Information("Player {PlayerId} joined room {RoomId}. Current players: {PlayerCount}. Metric: PlayersPerRoom",
@@ -127,12 +128,10 @@ public class GameRoom
 
                 if (input.Ability != null)
                 {
-                    switch (input.Ability)
+                    var ability = player.Abilities.FirstOrDefault(x => x.Tag == input.Ability);
+                    if (ability != null && ability.IsReady)
                     {
-                        case PlayerAbility.BOOST:
-                            if (player.BoostCooldownTicksRemaining <= 0)
-                                player.BoostTicksRemaining = TickRate * BoostLengthSeconds;
-                            break;
+                        ability.Activate();
                     }
                 }
             }
@@ -145,16 +144,10 @@ public class GameRoom
 
             var (dx, dy) = GetDelta(p.Direction);
 
-            // Handle boost ticks
-            p.BoostCooldownTicksRemaining = Math.Max(0, p.BoostCooldownTicksRemaining - 1);
-            if (p.BoostTicksRemaining > 0)
+            // Handle ability ticks
+            foreach (var ability in p.Abilities)
             {
-                if (--p.BoostTicksRemaining <= 0)
-                {
-                    p.SpeedMultiplier = 1;
-                    p.BoostCooldownTicksRemaining = BoostCooldownLengthSeconds * TickRate;
-                }
-                else p.SpeedMultiplier = 2;
+                ability.Tick();
             }
 
             int newX = p.X + dx * (int)p.SpeedMultiplier;
@@ -281,9 +274,21 @@ public class GameRoom
 
     private void BroadcastState()
     {
-        var players = Players.Values
-            .Where(ps => ps.IsAlive)
-            .Select(ps => new PlayerDto
+        var players = new List<PlayerDto>(Players.Values.Count);
+        foreach (var ps in Players.Values.Where(p => p.IsAlive))
+        {
+            var playerAbilities = new List<AbilityDto>(ps.Abilities.Count);
+            foreach (var ability in ps.Abilities)
+            {
+                playerAbilities.Add(new AbilityDto
+                {
+                    Name = ability.Tag,
+                    CooldownSecondsRemaining = ability.CooldownTicksRemaining / (float)TickRate,
+                    DurationSecondsRemaining = ability.DurationTicksRemaining / (float)TickRate,
+                });
+            }
+
+            players.Add(new PlayerDto
             {
                 Id = ps.PlayerId,
                 Username = ps.Username,
@@ -294,9 +299,10 @@ public class GameRoom
                 Alive = ps.IsAlive,
                 Disconnected = ps.IsDisconnected,
                 ColorId = ps.ColorId,
-                SpeedMultiplier = ps.SpeedMultiplier
-            })
-            .ToList();
+                SpeedMultiplier = ps.SpeedMultiplier,
+                Abilities = playerAbilities
+            });
+        }
 
         var msg = new StateMessage
         {
@@ -316,10 +322,6 @@ public class GameRoom
 
     public byte[] GetRleGrid()
     {
-        // reuse a buffer or at least pool it if possible - for now, simple RLE encoding
-        // Format: [count_byte, value_byte, count_byte, value_byte, ...]
-        // since count is a byte, max run is 255.
-        // In most cases, a 200x200 grid (40000 cells) will compress significantly.
         var result = new System.Collections.Generic.List<byte>(1024);
 
         byte lastValue = Grid[0, 0];
@@ -344,7 +346,6 @@ public class GameRoom
             }
         }
 
-        // add final run
         result.Add((byte)count);
         result.Add(lastValue);
 
@@ -368,6 +369,9 @@ public class GameRoom
 
     private bool KillPlayer(PlayerState player, string? killerId, string cause)
     {
+        if (player.Invulnerable)
+            return false;
+
         lock (player)
         {
             if (!player.IsAlive)
@@ -495,7 +499,6 @@ public class GameRoom
 
     private bool IsAdjacentToTerritory(int x, int y, byte colorId)
     {
-        // check if position is adjacent to player's territory
         if (x > 0 && Grid[x - 1, y] == colorId) return true;
         if (x < GridWidth - 1 && Grid[x + 1, y] == colorId) return true;
         if (y > 0 && Grid[x, y - 1] == colorId) return true;
@@ -505,9 +508,6 @@ public class GameRoom
 
     private bool IsEncircled(PlayerState victim, byte attackerColorId)
     {
-        // check if victim's territory is completely surrounded by attacker's territory
-        // flood fill from victim's position - if we can't reach the edge without
-        // crossing attacker's territory, victim is encircled
         var visited = new bool[GridWidth, GridHeight];
         var queue = new Queue<(int X, int Y)>();
         queue.Enqueue((victim.X, victim.Y));
@@ -520,7 +520,6 @@ public class GameRoom
         {
             var (cx, cy) = queue.Dequeue();
 
-            // reached edge - not encircled
             if (cx == 0 || cx == GridWidth - 1 || cy == 0 || cy == GridHeight - 1)
                 return false;
 
@@ -531,8 +530,6 @@ public class GameRoom
 
                 if (nx < 0 || nx >= GridWidth || ny < 0 || ny >= GridHeight) continue;
                 if (visited[nx, ny]) continue;
-
-                // can't pass through attacker's territory
                 if (Grid[nx, ny] == attackerColorId) continue;
 
                 visited[nx, ny] = true;
@@ -540,7 +537,6 @@ public class GameRoom
             }
         }
 
-        // couldn't reach edge - encircled
         return true;
     }
 }
