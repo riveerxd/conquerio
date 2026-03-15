@@ -97,32 +97,28 @@ public class DeathAndRespawnTest : WsTestBase
         var joined2 = await ReceiveMsg(ws2);
         var pid2 = joined2.GetProperty("playerId").GetString()!;
 
-        var killer = room.Players[pid1];
-        var victim = room.Players[pid2];
+        var attacker = room.Players[pid1];
+        var trailOwner = room.Players[pid2];
 
-        // set victim outside territory with a trail, then teleport killer onto victim's trail
-        victim.Direction = Direction.Down;
+        // move trailOwner outside territory to build a trail
+        trailOwner.Direction = Direction.Down;
         for (int i = 0; i < 5; i++) room.Tick();
 
-        Assert.True(victim.Trail.Count > 0, "victim should have a trail");
+        Assert.True(trailOwner.Trail.Count > 0, "trailOwner should have a trail");
 
-        // place killer directly on victim's trail (simulating collision)
-        var trailPoint = victim.Trail[0];
-        killer.X = trailPoint.X;
-        killer.Y = trailPoint.Y;
-        killer.Direction = Direction.Down; // any valid direction
-        // clear killer trail to prevent self-collision
-        killer.Trail.Clear();
+        // place attacker directly on trailOwner's trail position
+        var trailPoint = trailOwner.Trail[0];
+        attacker.X = trailPoint.X;
+        attacker.Y = trailPoint.Y;
+        attacker.Direction = Direction.Down;
+        attacker.Trail.Clear();
 
-        // tick should detect the collision
         room.Tick();
 
-        // killer should be dead because they stepped on victim's trail
-        // (HitsTrail checks current position against other player trails)
-        // OR victim dies if killer's trail was hit
-        // The actual result depends on exact positions, but one should be dead
-        Assert.True(!killer.IsAlive || !victim.IsAlive,
-            "at least one player should die from trail collision");
+        // trailOwner dies; attacker gets the kill credit
+        Assert.False(trailOwner.IsAlive, "trail owner should die when their trail is hit");
+        Assert.True(attacker.IsAlive, "attacker should survive");
+        Assert.Equal(1, attacker.Kills);
 
         await CloseWs(ws1);
         await CloseWs(ws2);
