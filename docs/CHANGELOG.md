@@ -1,8 +1,5 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-Generated from git log, grouped by date and author.
-
 ---
 
 ## [2026-03-13]
