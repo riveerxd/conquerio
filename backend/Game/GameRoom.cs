@@ -201,15 +201,15 @@ public class GameRoom
             }
 
             // --- collision: another player's trail ---
-            var killer = Players.Values.FirstOrDefault(other =>
+            var trailOwner = Players.Values.FirstOrDefault(other =>
                 other.PlayerId != p.PlayerId &&
                 other.IsAlive &&
                 CollisionDetector.HitsTrail(newX, newY, other));
 
-            if (killer != null)
+            if (trailOwner != null)
             {
-                killer.Kills++;
-                KillPlayer(p, killer.PlayerId, "trail");
+                p.Kills++;
+                KillPlayer(trailOwner, p.PlayerId, "trail");
                 continue;
             }
 
