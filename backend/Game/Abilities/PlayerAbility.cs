@@ -2,13 +2,12 @@ namespace conquerio.Game.Abilities;
 
 public abstract class PlayerAbility
 {
-    public bool IsReady { get => isReady; }
+    public bool IsReady { get => !isActivated && cooldownTicksRemaining <= 0; }
     public bool IsActivated { get => isActivated; }
 
     public int CooldownTicksRemaining { get => cooldownTicksRemaining; }
     public int DurationTicksRemaining { get => durationTicksRemaining; }
 
-    private bool isReady = true;
     private bool isActivated = false;
     private int cooldownTicksRemaining = 0;
     private int durationTicksRemaining = 0;
@@ -26,8 +25,9 @@ public abstract class PlayerAbility
 
     public void Activate()
     {
-        if (cooldownTicksRemaining <= 0)
-            Start();
+        if (!IsReady)
+            return;
+        Start();
         isActivated = true;
         durationTicksRemaining = gameRoom.TickRate * DurationSeconds;
     }
@@ -46,7 +46,6 @@ public abstract class PlayerAbility
             else Update();
         }
 
-        isReady = !isActivated && cooldownTicksRemaining <= 0;
     }
 
     protected abstract void Update();

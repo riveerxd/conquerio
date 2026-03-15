@@ -18,7 +18,7 @@ public class PlayerState
     public bool IsDisconnected { get; set; }
     public long DisconnectedAtTick { get; set; }
 
-    public LinkedList<PlayerAbility> Abilities { get; set; } = new();
+    public List<PlayerAbility> Abilities { get; set; } = new();
 
     // stats tracked during a run
     public int Kills { get; set; }

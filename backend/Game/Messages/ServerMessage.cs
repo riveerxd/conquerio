@@ -41,7 +41,7 @@ public class PlayerDto
     public bool Alive { get; set; }
     public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
-    public int SpeedMultiplier { get; set; }
+    public float SpeedMultiplier { get; set; }
     public IEnumerable<AbilityDto> Abilities { get; set; } = [];
 }
 

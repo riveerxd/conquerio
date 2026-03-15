@@ -15,9 +15,6 @@ public class GameRoom
     public int MaxPlayers { get; } = 20;
     private int TotalCells => GridWidth * GridHeight;
 
-    public int BoostLengthSeconds { get; } = 3;
-    public int BoostCooldownLengthSeconds { get; } = 10;
-
     public byte[,] Grid { get; }
     public ConcurrentDictionary<string, PlayerState> Players { get; } = new();
     public ConcurrentQueue<PlayerInput> InputQueue { get; } = new();
@@ -80,7 +77,8 @@ public class GameRoom
             OwnedCells = spawnCells
         };
 
-        player.Abilities.AddLast(new BoostAbility(this, player));
+        player.Abilities.Add(new BoostAbility(this, player));
+        player.Abilities.Add(new ShieldAbility(this, player));
 
         Players[playerId] = player;
 
@@ -301,7 +299,7 @@ public class GameRoom
                 Alive = ps.IsAlive,
                 Disconnected = ps.IsDisconnected,
                 ColorId = ps.ColorId,
-                SpeedMultiplier = (int)ps.SpeedMultiplier,
+                SpeedMultiplier = ps.SpeedMultiplier,
                 Abilities = playerAbilities
             });
         }

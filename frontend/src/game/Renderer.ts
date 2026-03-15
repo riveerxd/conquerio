@@ -25,11 +25,7 @@ export class Renderer {
   }
 
   render(state: GameState, interpolatedPlayers: Player[]) {
-    const player = state.players.find(x => x.id == state.myPlayerId);
-    if (!player) {
-      console.error(`Player ${state.myPlayerId} was not found! Ability times couldn't be retrieved!`);
-    }
-    const abilities = player?.abilities;
+    const abilities = state.players.find(x => x.id == state.myPlayerId)?.abilities;
 
     const { width, height } = this.canvas;
     const ctx = this.ctx;
