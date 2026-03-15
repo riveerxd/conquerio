@@ -66,6 +66,14 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
+// HSTS
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
+});
+
 // Game services
 builder.Services.AddSingleton<GameRoomManager>();
 builder.Services.AddHostedService<GameTickHostedService>();
@@ -82,7 +90,30 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+// Enable HSTS in non-development environments
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseWebSockets();
+
+// Content-Security-Policy (CSP)
+var productionCsp = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss: https:; img-src 'self' data:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+var developmentCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws: http: https:; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+var cspToUse = app.Environment.IsDevelopment() ? developmentCsp : productionCsp;
+
+app.Use(async (context, next) =>
+{
+    // Add CSP header if not already present
+    if (!context.Response.Headers.ContainsKey("Content-Security-Policy"))
+    {
+        context.Response.Headers.Add("Content-Security-Policy", cspToUse);
+    }
+
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
