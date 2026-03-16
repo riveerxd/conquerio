@@ -24,6 +24,7 @@ services:
       - "8080:8080"
     environment:
       ConnectionStrings__DefaultConnection: "Server=db;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD}"
+      JwtSettings__SecretKey: ${JWT_SECRET}
       ASPNETCORE_ENVIRONMENT: Production
     depends_on:
       db:
