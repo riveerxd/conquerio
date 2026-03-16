@@ -4,6 +4,7 @@ import { GameLoop } from "./GameLoop";
 import { InputHandler } from "./InputHandler";
 import DeathScreen from "../ui/DeathScreen";
 import Leaderboard from "../ui/Leaderboard";
+import PauseMenu from "../ui/PauseMenu";
 
 interface Props {
   token: string;
@@ -20,6 +21,7 @@ interface DeathInfo {
 export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [death, setDeath] = useState<DeathInfo | null>(null);
+  const [paused, setPaused] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
 
   // Bumping this key tears down the entire effect and reconnects
@@ -28,6 +30,14 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
   const handleRespawn = useCallback(() => {
     setDeath(null);
     setSessionKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPaused((prev) => !prev);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -78,6 +88,13 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       <canvas ref={canvasRef} style={{ display: "block" }} />
       {networkClient && (
         <Leaderboard networkClient={networkClient} />
+      )}
+      {paused && !death && (
+        <PauseMenu
+          onResume={() => setPaused(false)}
+          onProfile={onProfile}
+          onLeave={() => { setPaused(false); onDisconnect(); }}
+        />
       )}
       {death && (
         <DeathScreen
