@@ -53,6 +53,27 @@ push to production branch → GitHub Actions → SSH into VPS → docker compose
 
 Server-authoritative multiplayer. Server runs a 20Hz tick loop, clients send direction input, server broadcasts game state. No client-side prediction, just interpolation between ticks.
 
+## Dependencies
+
+### Backend
+
+| Package | Why |
+|---------|-----|
+| `Pomelo.EntityFrameworkCore.MySql` | EF Core provider for MySQL - used instead of the Oracle one because it's better maintained and actually works with recent EF Core versions |
+| `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | handles user registration, login, password hashing - no point rolling our own |
+| `Microsoft.AspNetCore.Authentication.JwtBearer` | validates JWT tokens on incoming requests |
+| `System.IdentityModel.Tokens.Jwt` | generates JWT tokens on login - JwtBearer only validates, this one creates them |
+| `Serilog.AspNetCore` + sinks | structured logging to console and rolling log files - built-in ASP.NET logging doesn't support file sinks out of the box |
+| `Microsoft.EntityFrameworkCore.Design` | needed for `dotnet ef` CLI (generating migrations) - not used at runtime |
+| `Microsoft.AspNetCore.OpenApi` | auto-generates OpenAPI docs, only enabled in dev |
+
+### Frontend
+
+| Package | Why |
+|---------|-----|
+| `@vitejs/plugin-react` | Vite plugin for React - handles JSX transform and HMR during dev |
+| `@playwright/test` | end-to-end tests |
+
 ## Team
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow and work distribution.
