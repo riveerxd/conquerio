@@ -92,10 +92,10 @@ app.Use(async (context, next) =>
     // Add CSP header if not already present
     if (!context.Response.Headers.ContainsKey("Content-Security-Policy"))
     {
-        context.Response.Headers.Add("Content-Security-Policy", cspToUse);
+        context.Response.Headers.Append("X-Content-Security-Policy", cspToUse);
     }
 
-    await next();
+    await next(context);
 });
 
 app.UseAuthentication();
