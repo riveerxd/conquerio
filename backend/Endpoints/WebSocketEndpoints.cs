@@ -203,7 +203,10 @@ public static class WebSocketEndpoints
                 if (room.Players.Values.All(ps => ps.IsDisconnected || !ps.IsAlive))
                     roomManager.MarkEmpty(room.RoomId);
             }
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("WebSocket game connection")
+        .WithDescription("Connect to the game server via WebSocket. Requires a valid JWT token in the 'token' query parameter and an optional 'roomId'.");
     }
 
     private static async Task PersistDeathStatsAsync(
