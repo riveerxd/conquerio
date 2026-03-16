@@ -42,6 +42,7 @@ public class PlayerDto
     public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
     public float SpeedMultiplier { get; set; }
+    public IEnumerable<AbilityDto> Abilities { get; set; } = [];
 }
 
 public class GridCell
@@ -51,12 +52,29 @@ public class GridCell
     public byte C { get; set; }
 }
 
+public class AbilityDto
+{
+    public required string Name { get; set; }
+    public float DurationSecondsRemaining { get; set; }
+    public float CooldownSecondsRemaining { get; set; }
+}
+
 public class DeathMessage
 {
     [JsonPropertyName("type")]
     public string Type => "death";
 
     public string? KilledBy { get; set; }
+    public required string Reason { get; set; }
+}
+
+public class KillFeedMessage
+{
+    [JsonPropertyName("type")]
+    public string Type => "kill_feed";
+
+    public required string VictimName { get; set; }
+    public string? KillerName { get; set; }
     public required string Reason { get; set; }
 }
 

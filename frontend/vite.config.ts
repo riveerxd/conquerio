@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const backendOrigin = process.env.BACKEND_ORIGIN ?? "http://172.20.10.2:8080";
+const backendWsOrigin = process.env.BACKEND_WS_ORIGIN ?? backendOrigin.replace(/^http/, "ws");
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -9,11 +12,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "http://backend:8080",
+        target: backendOrigin,
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://backend:8080",
+        target: backendWsOrigin,
         ws: true,
       },
     },

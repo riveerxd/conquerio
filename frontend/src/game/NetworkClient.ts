@@ -1,4 +1,4 @@
-import type { Direction, GameState, JoinedMessage, ServerMessage, StateMessage } from "./types";
+import type { Direction, GameState, JoinedMessage, KillFeedMessage, ServerMessage, StateMessage } from "./types";
 
 export class NetworkClient {
   private ws: WebSocket | null = null;
@@ -11,6 +11,7 @@ export class NetworkClient {
   private prevState: StateMessage | null = null;
   private lastTickTime = 0;
   private onDeathCb: ((msg: { killedBy: string | null; reason: string }) => void) | null = null;
+  private onKillFeedCb: ((msg: KillFeedMessage) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
   private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
@@ -48,6 +49,10 @@ export class NetworkClient {
 
   onDeath(cb: (msg: { killedBy: string | null; reason: string }) => void) {
     this.onDeathCb = cb;
+  }
+
+  onKillFeed(cb: (msg: KillFeedMessage) => void) {
+    this.onKillFeedCb = cb;
   }
 
   onJoined(cb: () => void) {
@@ -100,6 +105,9 @@ export class NetworkClient {
         break;
       case "death":
         this.onDeathCb?.(msg);
+        break;
+      case "kill_feed":
+        this.onKillFeedCb?.(msg);
         break;
     }
   }
