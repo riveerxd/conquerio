@@ -11,6 +11,7 @@ export class GameLoop {
   private running = false;
   private lastFrameTime = 0;
   private cameraInitialized = false;
+  private spectateTargetId: string | null = null;
 
   constructor(canvas: HTMLCanvasElement, private network: NetworkClient) {
     this.camera = new Camera();
@@ -29,6 +30,11 @@ export class GameLoop {
     cancelAnimationFrame(this.animFrameId);
   }
 
+  setSpectateTarget(id: string | null) {
+    this.spectateTargetId = id;
+    this.cameraInitialized = false; // snap to new target on next frame
+  }
+
   private tick = () => {
     if (!this.running) return;
 
@@ -38,14 +44,16 @@ export class GameLoop {
 
     const state = this.network.getState();
     if (state) {
-      const me = state.players.find((p) => p.id === state.myPlayerId);
-      if (me) {
+      const targetId = this.spectateTargetId ?? state.myPlayerId;
+      const target = state.players.find((p) => p.id === targetId)
+        ?? (this.spectateTargetId ? state.players[0] : undefined);
+
+      if (target) {
         if (!this.cameraInitialized) {
-          // Snap on first frame so camera doesn't slide in from (0,0)
-          this.camera.snapTo(me.x, me.y);
+          this.camera.snapTo(target.x, target.y);
           this.cameraInitialized = true;
         } else {
-          this.camera.follow(me.x, me.y, deltaSeconds);
+          this.camera.follow(target.x, target.y, deltaSeconds);
         }
       }
 
