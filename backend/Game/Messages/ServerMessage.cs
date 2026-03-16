@@ -12,7 +12,12 @@ public class JoinedMessage
     public int GridWidth { get; set; }
     public int GridHeight { get; set; }
     public int TickRate { get; set; }
-    public required byte[] Grid { get; set; }
+
+    /// <summary>
+    /// Run-length encoded grid data.
+    /// Format: [count, value, count, value, ...]
+    /// </summary>
+    public required byte[] RleGrid { get; set; }
 }
 
 public class StateMessage
@@ -28,13 +33,16 @@ public class StateMessage
 public class PlayerDto
 {
     public required string Id { get; set; }
+    public required string Username { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
     public required string Dir { get; set; }
     public required List<int[]> Trail { get; set; }
     public bool Alive { get; set; }
+    public bool Disconnected { get; set; }
     public byte ColorId { get; set; }
     public float SpeedMultiplier { get; set; }
+    public IEnumerable<AbilityDto> Abilities { get; set; } = [];
 }
 
 public class GridCell
@@ -44,12 +52,29 @@ public class GridCell
     public byte C { get; set; }
 }
 
+public class AbilityDto
+{
+    public required string Name { get; set; }
+    public float DurationSecondsRemaining { get; set; }
+    public float CooldownSecondsRemaining { get; set; }
+}
+
 public class DeathMessage
 {
     [JsonPropertyName("type")]
     public string Type => "death";
 
     public string? KilledBy { get; set; }
+    public required string Reason { get; set; }
+}
+
+public class KillFeedMessage
+{
+    [JsonPropertyName("type")]
+    public string Type => "kill_feed";
+
+    public required string VictimName { get; set; }
+    public string? KillerName { get; set; }
     public required string Reason { get; set; }
 }
 

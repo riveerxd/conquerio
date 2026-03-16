@@ -9,6 +9,9 @@ export class GameLoop {
   private interpolator: StateInterpolator;
   private animFrameId = 0;
   private running = false;
+  private lastFrameTime = 0;
+  private cameraInitialized = false;
+  private spectateTargetId: string | null = null;
 
   constructor(canvas: HTMLCanvasElement, private network: NetworkClient) {
     this.camera = new Camera();
@@ -18,6 +21,7 @@ export class GameLoop {
 
   start() {
     this.running = true;
+    this.lastFrameTime = performance.now();
     this.tick();
   }
 
@@ -26,15 +30,33 @@ export class GameLoop {
     cancelAnimationFrame(this.animFrameId);
   }
 
+  setSpectateTarget(id: string | null) {
+    this.spectateTargetId = id;
+    this.cameraInitialized = false; // snap to new target on next frame
+  }
+
   private tick = () => {
     if (!this.running) return;
 
+    const now = performance.now();
+    const deltaSeconds = Math.min((now - this.lastFrameTime) / 1000, 0.1); // cap at 100ms to avoid jumps after tab blur
+    this.lastFrameTime = now;
+
     const state = this.network.getState();
     if (state) {
-      const me = state.players.find((p) => p.id === state.myPlayerId);
-      if (me) this.camera.update(me.x, me.y);
+      const targetId = this.spectateTargetId ?? state.myPlayerId;
+      const target = state.players.find((p) => p.id === targetId)
+        ?? (this.spectateTargetId ? state.players[0] : undefined);
 
-      // TODO: maybe add camera smoothing later so it doesnt snap
+      if (target) {
+        if (!this.cameraInitialized) {
+          this.camera.snapTo(target.x, target.y);
+          this.cameraInitialized = true;
+        } else {
+          this.camera.follow(target.x, target.y, deltaSeconds);
+        }
+      }
+
       const interpolated = this.interpolator.getPlayers();
       this.renderer.render(state, interpolated);
     }

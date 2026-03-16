@@ -1,4 +1,4 @@
-import type { Direction, GameState, JoinedMessage, ServerMessage, StateMessage } from "./types";
+import type { Direction, GameState, JoinedMessage, KillFeedMessage, ServerMessage, StateMessage } from "./types";
 
 export class NetworkClient {
   private ws: WebSocket | null = null;
@@ -11,8 +11,10 @@ export class NetworkClient {
   private prevState: StateMessage | null = null;
   private lastTickTime = 0;
   private onDeathCb: ((msg: { killedBy: string | null; reason: string }) => void) | null = null;
+  private onKillFeedCb: ((msg: KillFeedMessage) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
+  private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
 
   connect(token: string, roomId?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -49,12 +51,24 @@ export class NetworkClient {
     this.onDeathCb = cb;
   }
 
+  onKillFeed(cb: (msg: KillFeedMessage) => void) {
+    this.onKillFeedCb = cb;
+  }
+
   onJoined(cb: () => void) {
     this.onJoinedCb = cb;
   }
 
   onDisconnect(cb: () => void) {
     this.onDisconnectCb = cb;
+  }
+
+  onStateUpdate(cb: (state: import("./types").GameState) => void) {
+    this.onStateUpdateCb = cb;
+  }
+
+  offStateUpdate() {
+    this.onStateUpdateCb = null;
   }
 
   getState(): GameState | null {
@@ -92,6 +106,9 @@ export class NetworkClient {
       case "death":
         this.onDeathCb?.(msg);
         break;
+      case "kill_feed":
+        this.onKillFeedCb?.(msg);
+        break;
     }
   }
 
@@ -100,7 +117,27 @@ export class NetworkClient {
     this.gridWidth = msg.gridWidth;
     this.gridHeight = msg.gridHeight;
     this.tickRate = msg.tickRate;
-    this.grid = new Uint8Array(msg.grid);
+
+    // Decode base64 RLE grid
+    const binaryStr = atob(msg.rleGrid);
+    const rleBytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      rleBytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    // Decode RLE to full grid
+    this.grid = new Uint8Array(this.gridWidth * this.gridHeight);
+    let offset = 0;
+    for (let i = 0; i < rleBytes.length; i += 2) {
+      const count = rleBytes[i];
+      const value = rleBytes[i + 1];
+      for (let j = 0; j < count; j++) {
+        if (offset < this.grid.length) {
+          this.grid[offset++] = value;
+        }
+      }
+    }
+
     this.onJoinedCb?.();
   }
 
@@ -111,6 +148,11 @@ export class NetworkClient {
 
     for (const cell of msg.gridDiff) {
       this.grid[cell.y * this.gridWidth + cell.x] = cell.c;
+    }
+
+    if (this.onStateUpdateCb) {
+      const state = this.getState();
+      if (state) this.onStateUpdateCb(state);
     }
   }
 }

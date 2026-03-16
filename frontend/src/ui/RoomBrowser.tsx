@@ -5,10 +5,11 @@ interface Props {
   token: string;
   onJoinRoom: (roomId: string) => void;
   onQuickPlay: () => void;
+  onProfile: () => void;
   onLogout: () => void;
 }
 
-export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onLogout }: Props) {
+export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile, onLogout }: Props) {
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -85,9 +86,14 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onLogout }
 
       {error && <div style={styles.error}>{error}</div>}
 
-      <button style={styles.logoutButton} onClick={onLogout}>
-        logout
-      </button>
+      <div style={styles.footer}>
+        <button style={styles.footerButton} onClick={onProfile}>
+          my profile
+        </button>
+        <button style={styles.footerButton} onClick={onLogout}>
+          logout
+        </button>
+      </div>
     </div>
   );
 }
@@ -195,13 +201,18 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px",
     marginTop: "12px",
   },
-  logoutButton: {
+  footer: {
+    display: "flex",
+    gap: "20px",
+    marginTop: "24px",
+  },
+  footerButton: {
     background: "none",
     border: "none",
     color: "#666",
     cursor: "pointer",
     fontSize: "13px",
     fontFamily: "monospace",
-    marginTop: "24px",
+    padding: 0,
   },
 };

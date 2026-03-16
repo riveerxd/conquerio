@@ -8,7 +8,7 @@ public class DeathAndRespawnTest : WsTestBase
     public DeathAndRespawnTest(GameFactory factory) : base(factory) { }
 
     [Fact]
-    public async Task SelfTrailCollision_SendsDeathMessage()
+    public async Task SelfTrailCollision_ClaimsTerritory_WhenConnectedToBase()
     {
         var uid = UniqueId();
         var token = await RegisterAndGetToken($"die_{uid}", $"die_{uid}@test.com", "Pass123!");
@@ -20,10 +20,10 @@ public class DeathAndRespawnTest : WsTestBase
         var joined = await ReceiveMsg(ws);
         var playerId = joined.GetProperty("playerId").GetString()!;
         var player = room.Players[playerId];
+        var initialCells = player.OwnedCells;
 
-        // force player into a self-collision: right 5, down 3, left 3, up 3
-        // after 2 ticks right the player leaves 3x3 spawn territory and builds trail
-        // the up leg crosses the horizontal trail at the starting row
+        // make a loop that connects back to territory
+        // right 5, down 3, left 3, up 3 - this should claim territory not kill
         player.Direction = Direction.Right;
         for (int i = 0; i < 5; i++) room.Tick();
 
@@ -36,8 +36,9 @@ public class DeathAndRespawnTest : WsTestBase
         player.Direction = Direction.Up;
         for (int i = 0; i < 4; i++) room.Tick();
 
-        // player should now have hit its own trail and died
-        Assert.False(player.IsAlive);
+        // player should be alive and have claimed more territory
+        Assert.True(player.IsAlive);
+        Assert.True(player.OwnedCells > initialCells);
     }
 
     [Fact]
@@ -96,32 +97,28 @@ public class DeathAndRespawnTest : WsTestBase
         var joined2 = await ReceiveMsg(ws2);
         var pid2 = joined2.GetProperty("playerId").GetString()!;
 
-        var killer = room.Players[pid1];
-        var victim = room.Players[pid2];
+        var attacker = room.Players[pid1];
+        var trailOwner = room.Players[pid2];
 
-        // set victim outside territory with a trail, then teleport killer onto victim's trail
-        victim.Direction = Direction.Down;
+        // move trailOwner outside territory to build a trail
+        trailOwner.Direction = Direction.Down;
         for (int i = 0; i < 5; i++) room.Tick();
 
-        Assert.True(victim.Trail.Count > 0, "victim should have a trail");
+        Assert.True(trailOwner.Trail.Count > 0, "trailOwner should have a trail");
 
-        // place killer directly on victim's trail (simulating collision)
-        var trailPoint = victim.Trail[0];
-        killer.X = trailPoint.X;
-        killer.Y = trailPoint.Y;
-        killer.Direction = Direction.Down; // any valid direction
-        // clear killer trail to prevent self-collision
-        killer.Trail.Clear();
+        // place attacker directly on trailOwner's trail position
+        var trailPoint = trailOwner.Trail[0];
+        attacker.X = trailPoint.X;
+        attacker.Y = trailPoint.Y;
+        attacker.Direction = Direction.Down;
+        attacker.Trail.Clear();
 
-        // tick should detect the collision
         room.Tick();
 
-        // killer should be dead because they stepped on victim's trail
-        // (HitsTrail checks current position against other player trails)
-        // OR victim dies if killer's trail was hit
-        // The actual result depends on exact positions, but one should be dead
-        Assert.True(!killer.IsAlive || !victim.IsAlive,
-            "at least one player should die from trail collision");
+        // trailOwner dies; attacker gets the kill credit
+        Assert.False(trailOwner.IsAlive, "trail owner should die when their trail is hit");
+        Assert.True(attacker.IsAlive, "attacker should survive");
+        Assert.Equal(1, attacker.Kills);
 
         await CloseWs(ws1);
         await CloseWs(ws2);
@@ -154,7 +151,7 @@ public class DeathAndRespawnTest : WsTestBase
     }
 
     [Fact]
-    public async Task Disconnect_KillsPlayer()
+    public async Task Disconnect_MarksPlayerDisconnected()
     {
         var uid = UniqueId();
         var token = await RegisterAndGetToken($"dkill_{uid}", $"dkill_{uid}@test.com", "Pass123!");
@@ -167,12 +164,13 @@ public class DeathAndRespawnTest : WsTestBase
         var playerId = joined.GetProperty("playerId").GetString()!;
 
         Assert.True(room.Players[playerId].IsAlive);
+        Assert.False(room.Players[playerId].IsDisconnected);
 
         await CloseWs(ws);
-        await WaitUntil(() => !room.Players.ContainsKey(playerId));
+        await WaitUntil(() => room.Players[playerId].IsDisconnected);
 
-        // player is removed after disconnect
-        Assert.False(room.Players.ContainsKey(playerId));
+        // player is marked disconnected (not immediately removed - grace period exists)
+        Assert.True(room.Players[playerId].IsDisconnected);
     }
 
     [Fact]

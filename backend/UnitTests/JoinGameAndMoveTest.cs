@@ -21,8 +21,8 @@ public class JoinGameAndMoveTest : WsTestBase
         Assert.True(joined.GetProperty("gridHeight").GetInt32() > 0);
         Assert.True(joined.GetProperty("tickRate").GetInt32() > 0);
         Assert.False(string.IsNullOrEmpty(joined.GetProperty("playerId").GetString()));
-        // byte[] Grid serializes as base64 string
-        Assert.False(string.IsNullOrEmpty(joined.GetProperty("grid").GetString()));
+        // byte[] RleGrid serializes as base64 string
+        Assert.False(string.IsNullOrEmpty(joined.GetProperty("rleGrid").GetString()));
 
         await CloseWs(ws);
     }
