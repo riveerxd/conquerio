@@ -393,6 +393,26 @@ public class GameRoom
             _ = MessageSerializer.SendAsync(player.Socket, deathMsg);
         }
 
+        // broadcast kill feed event to all players
+        {
+            string? killerName = null;
+            if (killerId != null && Players.TryGetValue(killerId, out var killer))
+            {
+                killerName = killer.Username;
+            }
+            var killFeedMsg = new Messages.KillFeedMessage
+            {
+                VictimName = player.Username,
+                KillerName = killerName,
+                Reason = cause
+            };
+            foreach (var p in Players.Values)
+            {
+                if (p.Socket.State == System.Net.WebSockets.WebSocketState.Open)
+                    _ = MessageSerializer.SendAsync(p.Socket, killFeedMsg);
+            }
+        }
+
         // clear dead player's territory from the grid
         for (int x = 0; x < GridWidth; x++)
         {

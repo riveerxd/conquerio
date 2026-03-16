@@ -4,6 +4,7 @@ import { GameLoop } from "./GameLoop";
 import { InputHandler } from "./InputHandler";
 import DeathScreen from "../ui/DeathScreen";
 import Leaderboard from "../ui/Leaderboard";
+import KillFeed from "../ui/KillFeed";
 
 interface Props {
   token: string;
@@ -78,6 +79,9 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       <canvas ref={canvasRef} style={{ display: "block" }} />
       {networkClient && (
         <Leaderboard networkClient={networkClient} />
+      )}
+      {networkClient && (
+        <KillFeed networkClient={networkClient} />
       )}
       {death && (
         <DeathScreen

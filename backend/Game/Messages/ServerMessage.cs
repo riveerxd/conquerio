@@ -68,6 +68,16 @@ public class DeathMessage
     public required string Reason { get; set; }
 }
 
+public class KillFeedMessage
+{
+    [JsonPropertyName("type")]
+    public string Type => "kill_feed";
+
+    public required string VictimName { get; set; }
+    public string? KillerName { get; set; }
+    public required string Reason { get; set; }
+}
+
 public class PongMessage
 {
     [JsonPropertyName("type")]
