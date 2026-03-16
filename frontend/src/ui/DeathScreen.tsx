@@ -37,6 +37,9 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 10,
   },
   box: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
     textAlign: "center",
     color: "#fff",
     fontFamily: "monospace",

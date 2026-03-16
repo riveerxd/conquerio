@@ -57,4 +57,11 @@ export interface DeathMessage {
   reason: string;
 }
 
-export type ServerMessage = JoinedMessage | StateMessage | DeathMessage | { type: "pong"; t: number } | { type: "error"; msg: string };
+export interface KillFeedMessage {
+  type: "kill_feed";
+  victimName: string;
+  killerName: string | null;
+  reason: string;
+}
+
+export type ServerMessage = JoinedMessage | StateMessage | DeathMessage | KillFeedMessage | { type: "pong"; t: number } | { type: "error"; msg: string };
