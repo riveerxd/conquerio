@@ -35,7 +35,8 @@ public static class AuthEndpoints
             return Results.Ok(new { message = "Registration successful." });
         })
         .WithTags("Auth")
-        .WithSummary("Register a new user");
+        .WithSummary("Register a new user")
+        .WithDescription("Creates a new user account with the specified username, email, and password.");
 
         // POST /api/auth/login
         app.MapPost("/api/auth/login", async (
@@ -51,7 +52,8 @@ public static class AuthEndpoints
             return Results.Ok(new { token });
         })
         .WithTags("Auth")
-        .WithSummary("Login and get a JWT token");
+        .WithSummary("Login and get a JWT token")
+        .WithDescription("Authenticates a user and returns a JWT token for subsequent requests.");
 
         // GET /api/auth/me
         app.MapGet("/api/auth/me", (ClaimsPrincipal principal, UserManager<AppUser> userManager) =>
@@ -68,7 +70,8 @@ public static class AuthEndpoints
         })
         .RequireAuthorization()
         .WithTags("Auth")
-        .WithSummary("Get current user profile");
+        .WithSummary("Get current user profile")
+        .WithDescription("Returns information about the currently authenticated user based on the JWT token.");
     }
 
     private static string GenerateJwtToken(AppUser user, IConfiguration config)
@@ -95,4 +98,3 @@ public static class AuthEndpoints
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
-

@@ -46,7 +46,10 @@ public static class GameEndpoints
                 e.Elo,
                 e.BestTerritoryPct
             }));
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("Get leaderboard entries")
+        .WithDescription("Retrieves the top players by Elo rating, limited by the maxPlayers parameter.");
 
         // GET /api/stats/{id}
         app.MapGet("/api/stats/{id}", async (string id, AppDbContext db) =>
@@ -69,7 +72,10 @@ public static class GameEndpoints
             return stats is null
                 ? Results.NotFound($"No stats found for player '{id}'.")
                 : Results.Ok(stats);
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("Get player statistics")
+        .WithDescription("Returns game statistics for a specific player by their user ID.");
 
         app.MapGet("/api/rooms", (GameRoomManager roomManager) =>
         {
@@ -84,7 +90,11 @@ public static class GameEndpoints
                 });
 
             return Results.Ok(rooms);
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization()
+        .WithTags("Game")
+        .WithSummary("List active game rooms")
+        .WithDescription("Lists all current game rooms that have players.");
 
         app.MapPost("/api/rooms", (GameRoomManager roomManager, CreateRoomRequest? request) =>
         {
@@ -97,10 +107,13 @@ public static class GameEndpoints
                 playerCount = 0,
                 maxPlayers = room.MaxPlayers
             });
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization()
+        .WithTags("Game")
+        .WithSummary("Create a new game room")
+        .WithDescription("Manually creates a new game room where players can join.");
     }
 }
 
 record CreateRoomRequest(string? Name);
-
 
