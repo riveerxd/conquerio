@@ -5,6 +5,7 @@ using conquerio.Game;
 using conquerio.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -66,6 +67,13 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+
 // Game services
 builder.Services.AddSingleton<GameRoomManager>();
 builder.Services.AddHostedService<GameTickHostedService>();
@@ -82,6 +90,7 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseResponseCompression();
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
