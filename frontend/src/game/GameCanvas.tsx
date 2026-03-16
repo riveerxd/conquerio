@@ -5,6 +5,7 @@ import { InputHandler } from "./InputHandler";
 import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
 import SpectateOverlay from "../ui/SpectateOverlay";
+import PauseMenu from "../ui/PauseMenu";
 
 interface Props {
   token: string;
@@ -23,6 +24,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
   const gameLoopRef = useRef<GameLoop | null>(null);
   const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
 
   // keep game loop in sync when spectated player changes
@@ -39,6 +41,14 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
     setSpectate(null);
     setSpectatedPlayerId(null);
     setSessionKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPaused((prev) => !prev);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -100,6 +110,13 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       )}
       {networkClient && (
         <KillFeed networkClient={networkClient} />
+      )}
+      {paused && !spectate && (
+        <PauseMenu
+          onResume={() => setPaused(false)}
+          onProfile={onProfile}
+          onLeave={() => { setPaused(false); onDisconnect(); }}
+        />
       )}
       {spectate && networkClient && (
         <SpectateOverlay
