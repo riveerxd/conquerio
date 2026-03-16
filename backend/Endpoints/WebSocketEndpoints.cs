@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Channels;
 using conquerio.Data;
 using conquerio.Game;
+using conquerio.Game.Abilities;
 using conquerio.Game.Messages;
 using conquerio.Models;
 using Microsoft.AspNetCore.Identity;
@@ -117,7 +118,7 @@ public static class WebSocketEndpoints
 
             room.PlayerDied += OnPlayerDied;
 
-            // send joined message with compressed grid
+            // send joined message with full grid
             await MessageSerializer.SendAsync(ws, new JoinedMessage
             {
                 PlayerId = userId,
