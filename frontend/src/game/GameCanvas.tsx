@@ -2,9 +2,9 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { NetworkClient } from "./NetworkClient";
 import { GameLoop } from "./GameLoop";
 import { InputHandler } from "./InputHandler";
-import DeathScreen from "../ui/DeathScreen";
 import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
+import SpectateOverlay from "../ui/SpectateOverlay";
 
 interface Props {
   token: string;
@@ -13,21 +13,31 @@ interface Props {
   onProfile?: () => void;
 }
 
-interface DeathInfo {
+interface SpectateInfo {
   reason: string;
   killedBy: string | null;
 }
 
 export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [death, setDeath] = useState<DeathInfo | null>(null);
+  const gameLoopRef = useRef<GameLoop | null>(null);
+  const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
+  const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+
+  // keep game loop in sync when spectated player changes
+  useEffect(() => {
+    if (gameLoopRef.current) {
+      gameLoopRef.current.setSpectateTarget(spectatedPlayerId);
+    }
+  }, [spectatedPlayerId]);
 
   // Bumping this key tears down the entire effect and reconnects
   const [sessionKey, setSessionKey] = useState(0);
 
   const handleRespawn = useCallback(() => {
-    setDeath(null);
+    setSpectate(null);
+    setSpectatedPlayerId(null);
     setSessionKey((k) => k + 1);
   }, []);
 
@@ -44,6 +54,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
 
     const network = new NetworkClient();
     const gameLoop = new GameLoop(canvas, network);
+    gameLoopRef.current = gameLoop;
     const input = new InputHandler(network);
 
     network.onJoined(() => {
@@ -53,8 +64,14 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
     });
 
     network.onDeath((msg) => {
-      gameLoop.stop();
-      setDeath({ reason: msg.reason, killedBy: msg.killedBy });
+      // keep game loop running for spectate
+      setSpectate({ reason: msg.reason, killedBy: msg.killedBy });
+      const state = network.getState();
+      const firstAlive = state?.players[0];
+      if (firstAlive) {
+        setSpectatedPlayerId(firstAlive.id);
+        gameLoop.setSpectateTarget(firstAlive.id);
+      }
     });
 
     let intentionalDisconnect = false;
@@ -69,6 +86,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       window.removeEventListener("resize", resize);
       input.destroy();
       gameLoop.stop();
+      gameLoopRef.current = null;
       network.disconnect();
       setNetworkClient(null);
     };
@@ -83,10 +101,13 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       {networkClient && (
         <KillFeed networkClient={networkClient} />
       )}
-      {death && (
-        <DeathScreen
-          reason={death.reason}
-          killedBy={death.killedBy}
+      {spectate && networkClient && (
+        <SpectateOverlay
+          networkClient={networkClient}
+          killedBy={spectate.killedBy}
+          reason={spectate.reason}
+          spectatedPlayerId={spectatedPlayerId}
+          onPlayerChange={setSpectatedPlayerId}
           onRespawn={handleRespawn}
           onProfile={onProfile}
         />
