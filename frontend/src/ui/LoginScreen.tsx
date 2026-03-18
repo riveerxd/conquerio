@@ -91,13 +91,19 @@ export default function LoginScreen({ onLogin }: Props) {
           </div>
         )}
         {error && <div style={styles.error}>{error}</div>}
-        <button type="submit" style={styles.button} disabled={loading}>
+        <button
+          type="submit"
+          style={styles.button}
+          disabled={loading}
+          aria-label={isRegister ? "Register new account" : "Start playing"}
+        >
           {loading ? "..." : isRegister ? "register" : "play"}
         </button>
         <button
           type="button"
           style={styles.toggle}
           onClick={() => setIsRegister(!isRegister)}
+          aria-label={isRegister ? "Switch to login screen" : "Switch to registration screen"}
         >
           {isRegister ? "have an account? login" : "no account? register"}
         </button>
