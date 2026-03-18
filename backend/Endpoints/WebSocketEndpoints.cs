@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Channels;
 using conquerio.Data;
 using conquerio.Game;
+using conquerio.Game.Abilities;
 using conquerio.Game.Messages;
 using conquerio.Models;
 using Microsoft.AspNetCore.Identity;
@@ -117,7 +118,7 @@ public static class WebSocketEndpoints
 
             room.PlayerDied += OnPlayerDied;
 
-            // send joined message with compressed grid
+            // send joined message with full grid
             await MessageSerializer.SendAsync(ws, new JoinedMessage
             {
                 PlayerId = userId,
@@ -202,7 +203,10 @@ public static class WebSocketEndpoints
                 if (room.Players.Values.All(ps => ps.IsDisconnected || !ps.IsAlive))
                     roomManager.MarkEmpty(room.RoomId);
             }
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("WebSocket game connection")
+        .WithDescription("Connect to the game server via WebSocket. Requires a valid JWT token in the 'token' query parameter and an optional 'roomId'.");
     }
 
     private static async Task PersistDeathStatsAsync(
