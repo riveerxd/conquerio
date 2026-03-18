@@ -63,6 +63,7 @@ public static class WebSocketEndpoints
 
             // figure out which room to join
             var roomId = context.Request.Query["roomId"].FirstOrDefault();
+            var joinCode = context.Request.Query["joinCode"].FirstOrDefault();
             GameRoom room;
 
             if (!string.IsNullOrEmpty(roomId))
@@ -76,6 +77,12 @@ public static class WebSocketEndpoints
                 if (target.IsFull)
                 {
                     context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    return;
+                }
+                // validate join code for private rooms
+                if (target.JoinCode != null && target.JoinCode != joinCode)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     return;
                 }
                 room = target;

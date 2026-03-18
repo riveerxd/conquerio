@@ -1,0 +1,1 @@
+2026-03-18 11:51:13.480 +01:00 [INF] Game tick loop started at 20 ticks/sec

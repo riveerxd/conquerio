@@ -12,24 +12,24 @@ public class GameRoomManager
 
     public GameRoom GetOrCreateRoom()
     {
-        // pick the non-empty room with the most players that isn't full
+        // pick the non-empty, non-full, public room with the most players
         GameRoom? best = null;
         foreach (var room in _rooms.Values)
         {
-            if (room.IsFull || room.Players.IsEmpty) continue;
+            if (room.IsFull || room.Players.IsEmpty || room.JoinCode != null) continue;
             if (best == null || room.Players.Count > best.Players.Count)
                 best = room;
         }
 
-        return best ?? CreateRoom(null);
+        return best ?? CreateRoom(null, null);
     }
 
-    public GameRoom CreateRoom(string? name)
+    public GameRoom CreateRoom(string? name, RoomSettings? settings = null)
     {
         var counter = Interlocked.Increment(ref _roomCounter);
         var id = $"room-{counter}";
         var roomName = name ?? $"Room {counter}";
-        var newRoom = new GameRoom(id, roomName);
+        var newRoom = new GameRoom(id, roomName, settings);
         _rooms[id] = newRoom;
         // start cleanup timer - gets cancelled when someone joins
         MarkEmpty(id);

@@ -11,6 +11,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [token, setToken] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
 
   const userId = token ? getUserIdFromToken(token) : null;
 
@@ -29,12 +30,14 @@ export default function App() {
     return (
       <RoomBrowser
         token={token}
-        onJoinRoom={(id) => {
+        onJoinRoom={(id, code) => {
           setRoomId(id);
+          setJoinCode(code ?? null);
           setScreen("game");
         }}
         onQuickPlay={() => {
           setRoomId(null);
+          setJoinCode(null);
           setScreen("game");
         }}
         onProfile={() => setScreen("profile")}
@@ -59,6 +62,7 @@ export default function App() {
     <GameCanvas
       token={token}
       roomId={roomId ?? undefined}
+      joinCode={joinCode ?? undefined}
       onDisconnect={() => setScreen("rooms")}
       onProfile={userId ? () => setScreen("profile") : undefined}
     />

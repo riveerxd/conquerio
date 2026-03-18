@@ -86,7 +86,10 @@ public static class GameEndpoints
                     id = r.RoomId,
                     name = r.Name,
                     playerCount = r.Players.Count,
-                    maxPlayers = r.MaxPlayers
+                    maxPlayers = r.MaxPlayers,
+                    gridSize = GridSizeLabel(r.GridWidth),
+                    abilitiesEnabled = r.AbilitiesEnabled,
+                    isPrivate = r.JoinCode != null
                 });
 
             return Results.Ok(rooms);
@@ -98,14 +101,26 @@ public static class GameEndpoints
 
         app.MapPost("/api/rooms", (GameRoomManager roomManager, CreateRoomRequest? request) =>
         {
-            var room = roomManager.CreateRoom(request?.Name);
+            var settings = new RoomSettings
+            {
+                GridWidth = ParseGridSize(request?.GridSize).width,
+                GridHeight = ParseGridSize(request?.GridSize).height,
+                MaxPlayers = Math.Clamp(request?.MaxPlayers ?? 20, 2, 50),
+                AbilitiesEnabled = request?.AbilitiesEnabled ?? true,
+                JoinCode = string.IsNullOrWhiteSpace(request?.JoinCode) ? null : request.JoinCode
+            };
+
+            var room = roomManager.CreateRoom(request?.Name, settings);
 
             return Results.Ok(new
             {
                 id = room.RoomId,
                 name = room.Name,
                 playerCount = 0,
-                maxPlayers = room.MaxPlayers
+                maxPlayers = room.MaxPlayers,
+                gridSize = GridSizeLabel(room.GridWidth),
+                abilitiesEnabled = room.AbilitiesEnabled,
+                isPrivate = room.JoinCode != null
             });
         })
         .RequireAuthorization()
@@ -113,7 +128,21 @@ public static class GameEndpoints
         .WithSummary("Create a new game room")
         .WithDescription("Manually creates a new game room where players can join.");
     }
+
+    private static string GridSizeLabel(int width) => width switch
+    {
+        <= 100 => "small",
+        <= 200 => "medium",
+        _ => "large"
+    };
+
+    private static (int width, int height) ParseGridSize(string? size) => size?.ToLower() switch
+    {
+        "small" => (100, 100),
+        "large" => (300, 300),
+        _ => (200, 200)
+    };
 }
 
-record CreateRoomRequest(string? Name);
+record CreateRoomRequest(string? Name, string? GridSize, int? MaxPlayers, bool? AbilitiesEnabled, string? JoinCode);
 
