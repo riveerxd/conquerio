@@ -6,6 +6,8 @@ import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
 import SpectateOverlay from "../ui/SpectateOverlay";
 import PauseMenu from "../ui/PauseMenu";
+import SettingsMenu from "../ui/SettingsMenu";
+import { useSettings } from "../ui/SettingsContext";
 
 interface Props {
   token: string;
@@ -22,10 +24,23 @@ interface SpectateInfo {
 export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
+  const inputHandlerRef = useRef<InputHandler | null>(null);
+  const { settings } = useSettings();
   const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+
+  // keep game loop and input in sync when settings change
+  useEffect(() => {
+    if (gameLoopRef.current) {
+      gameLoopRef.current.setSettings(settings);
+    }
+    if (inputHandlerRef.current) {
+      inputHandlerRef.current.setSettings(settings);
+    }
+  }, [settings]);
 
   // keep game loop in sync when spectated player changes
   useEffect(() => {
@@ -45,11 +60,17 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPaused((prev) => !prev);
+      if (e.key === "Escape") {
+        if (showSettings) {
+          setShowSettings(false);
+        } else {
+          setPaused((prev) => !prev);
+        }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [showSettings]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,9 +84,10 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
     window.addEventListener("resize", resize);
 
     const network = new NetworkClient();
-    const gameLoop = new GameLoop(canvas, network);
+    const gameLoop = new GameLoop(canvas, network, settings);
     gameLoopRef.current = gameLoop;
-    const input = new InputHandler(network);
+    const input = new InputHandler(network, settings);
+    inputHandlerRef.current = input;
 
     network.onJoined(() => {
       console.log("joined game");
@@ -97,6 +119,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       input.destroy();
       gameLoop.stop();
       gameLoopRef.current = null;
+      inputHandlerRef.current = null;
       network.disconnect();
       setNetworkClient(null);
     };
@@ -111,12 +134,16 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       {networkClient && (
         <KillFeed networkClient={networkClient} />
       )}
-      {paused && !spectate && (
+      {paused && !spectate && !showSettings && (
         <PauseMenu
           onResume={() => setPaused(false)}
           onProfile={onProfile}
+          onSettings={() => setShowSettings(true)}
           onLeave={() => { setPaused(false); onDisconnect(); }}
         />
+      )}
+      {showSettings && (
+        <SettingsMenu onBack={() => setShowSettings(false)} />
       )}
       {spectate && networkClient && (
         <SpectateOverlay

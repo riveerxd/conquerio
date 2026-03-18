@@ -4,6 +4,7 @@ import RoomBrowser from "./ui/RoomBrowser";
 import GameCanvas from "./game/GameCanvas";
 import ProfilePage from "./ui/ProfilePage";
 import { getUserIdFromToken } from "./api/stats";
+import { SettingsProvider } from "./ui/SettingsContext";
 
 type Screen = "login" | "rooms" | "game" | "profile";
 
@@ -14,53 +15,61 @@ export default function App() {
 
   const userId = token ? getUserIdFromToken(token) : null;
 
-  if (screen === "login" || !token) {
-    return (
-      <LoginScreen
-        onLogin={(t) => {
-          setToken(t);
-          setScreen("rooms");
-        }}
-      />
-    );
-  }
+  const content = () => {
+    if (screen === "login" || !token) {
+      return (
+        <LoginScreen
+          onLogin={(t) => {
+            setToken(t);
+            setScreen("rooms");
+          }}
+        />
+      );
+    }
 
-  if (screen === "rooms") {
+    if (screen === "rooms") {
+      return (
+        <RoomBrowser
+          token={token}
+          onJoinRoom={(id) => {
+            setRoomId(id);
+            setScreen("game");
+          }}
+          onQuickPlay={() => {
+            setRoomId(null);
+            setScreen("game");
+          }}
+          onProfile={() => setScreen("profile")}
+          onLogout={() => {
+            setToken(null);
+            setScreen("login");
+          }}
+        />
+      );
+    }
+
+    if (screen === "profile" && userId) {
+      return (
+        <ProfilePage
+          userId={userId}
+          onBack={() => setScreen("rooms")}
+        />
+      );
+    }
+
     return (
-      <RoomBrowser
+      <GameCanvas
         token={token}
-        onJoinRoom={(id) => {
-          setRoomId(id);
-          setScreen("game");
-        }}
-        onQuickPlay={() => {
-          setRoomId(null);
-          setScreen("game");
-        }}
-        onProfile={() => setScreen("profile")}
-        onLogout={() => {
-          setToken(null);
-          setScreen("login");
-        }}
+        roomId={roomId ?? undefined}
+        onDisconnect={() => setScreen("rooms")}
+        onProfile={userId ? () => setScreen("profile") : undefined}
       />
     );
-  }
-
-  if (screen === "profile" && userId) {
-    return (
-      <ProfilePage
-        userId={userId}
-        onBack={() => setScreen("rooms")}
-      />
-    );
-  }
+  };
 
   return (
-    <GameCanvas
-      token={token}
-      roomId={roomId ?? undefined}
-      onDisconnect={() => setScreen("rooms")}
-      onProfile={userId ? () => setScreen("profile") : undefined}
-    />
+    <SettingsProvider>
+      {content()}
+    </SettingsProvider>
   );
 }

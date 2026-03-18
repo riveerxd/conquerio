@@ -1,35 +1,49 @@
 import type { NetworkClient } from "./NetworkClient";
 import type { Direction } from "./types";
-
-const KEY_MAP: Record<string, Direction> = {
-  w: "up",
-  a: "left",
-  s: "down",
-  d: "right",
-  ArrowUp: "up",
-  ArrowLeft: "left",
-  ArrowDown: "down",
-  ArrowRight: "right",
-};
+import type { GameSettings } from "../ui/SettingsContext";
 
 export class InputHandler {
   private currentDir: Direction | null = null;
   private handler;
+  private settings: GameSettings;
 
-  constructor(private network: NetworkClient) {
+  constructor(private network: NetworkClient, initialSettings: GameSettings) {
+    this.settings = initialSettings;
     this.handler = (e: KeyboardEvent) => {
-      if (e.key === " ") {
+      if (e.key === this.settings.keybinds.boost) {
         e.preventDefault();
         this.network.sendAbility("BOOST");
         return;
       }
-      const dir = KEY_MAP[e.key];
+      if (e.key === this.settings.keybinds.shield) {
+        e.preventDefault();
+        this.network.sendAbility("SHIELD");
+        return;
+      }
+
+      const dir = this.getDirectionFromKey(e.key);
       if (dir && dir !== this.currentDir) {
         this.currentDir = dir;
         this.network.sendInput(dir);
       }
     };
     window.addEventListener("keydown", this.handler);
+  }
+
+  setSettings(settings: GameSettings) {
+    this.settings = settings;
+  }
+
+  private getDirectionFromKey(key: string): Direction | null {
+    const { keybinds } = this.settings;
+    if (key === keybinds.up || key === "ArrowUp") return "up";
+    if (key === keybinds.down || key === "ArrowDown") return "down";
+    if (key === keybinds.left || key === "ArrowLeft") return "left";
+    if (key === keybinds.right || key === "ArrowRight") return "right";
+    
+    // Support default WASD even if remapped? Maybe not, better to be strict or allow both.
+    // Let's stick to strict custom + arrows as backup for now.
+    return null;
   }
 
   destroy() {

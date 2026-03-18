@@ -1,15 +1,17 @@
 interface Props {
   onResume: () => void;
   onProfile?: () => void;
+  onSettings: () => void;
   onLeave: () => void;
 }
 
-export default function PauseMenu({ onResume, onProfile, onLeave }: Props) {
+export default function PauseMenu({ onResume, onProfile, onSettings, onLeave }: Props) {
   return (
     <div style={styles.overlay} onClick={onResume}>
       <div style={styles.box} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.title}>menu</h2>
         <button onClick={onResume} style={styles.btn}>resume</button>
+        <button onClick={onSettings} style={styles.btn}>settings</button>
         {onProfile && (
           <button onClick={onProfile} style={styles.btn}>my stats</button>
         )}
