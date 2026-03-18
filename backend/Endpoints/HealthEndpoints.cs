@@ -18,6 +18,9 @@ public static class HealthEndpoints
             {
                 return Results.StatusCode(503);
             }
-        });
+        })
+        .WithTags("Health")
+        .WithSummary("Check system health")
+        .WithDescription("Checks the API and database connectivity to ensure the system is operational.");
     }
 }
