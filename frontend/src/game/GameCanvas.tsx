@@ -6,6 +6,7 @@ import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
 import SpectateOverlay from "../ui/SpectateOverlay";
 import PauseMenu from "../ui/PauseMenu";
+import TouchControls from "../ui/TouchControls";
 
 interface Props {
   token: string;
@@ -26,6 +27,11 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   // keep game loop in sync when spectated player changes
   useEffect(() => {
@@ -110,6 +116,9 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       )}
       {networkClient && (
         <KillFeed networkClient={networkClient} />
+      )}
+      {networkClient && isTouchDevice && !spectate && (
+        <TouchControls networkClient={networkClient} />
       )}
       {paused && !spectate && (
         <PauseMenu
