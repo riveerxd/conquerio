@@ -9,11 +9,11 @@ export default function PauseMenu({ onResume, onProfile, onLeave }: Props) {
     <div style={styles.overlay} onClick={onResume}>
       <div style={styles.box} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.title}>menu</h2>
-        <button onClick={onResume} style={styles.btn} aria-label="Resume game">resume</button>
+        <button onClick={onResume} style={styles.btn}>resume</button>
         {onProfile && (
-          <button onClick={onProfile} style={styles.btn} aria-label="View player profile and stats">my stats</button>
+          <button onClick={onProfile} style={styles.btn}>my stats</button>
         )}
-        <button onClick={onLeave} style={{ ...styles.btn, ...styles.leaveBtn }} aria-label="Exit current game room">leave game</button>
+        <button onClick={onLeave} style={{ ...styles.btn, ...styles.leaveBtn }}>leave game</button>
       </div>
     </div>
   );

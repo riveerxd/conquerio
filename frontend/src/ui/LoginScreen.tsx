@@ -95,7 +95,6 @@ export default function LoginScreen({ onLogin }: Props) {
           type="submit"
           style={styles.button}
           disabled={loading}
-          aria-label={isRegister ? "Register new account" : "Start playing"}
         >
           {loading ? "..." : isRegister ? "register" : "play"}
         </button>
@@ -103,7 +102,6 @@ export default function LoginScreen({ onLogin }: Props) {
           type="button"
           style={styles.toggle}
           onClick={() => setIsRegister(!isRegister)}
-          aria-label={isRegister ? "Switch to login screen" : "Switch to registration screen"}
         >
           {isRegister ? "have an account? login" : "no account? register"}
         </button>
