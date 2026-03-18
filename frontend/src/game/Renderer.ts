@@ -13,6 +13,7 @@ export class Renderer {
   private camera: Camera;
   private boostImg: HTMLImageElement;
   private shieldImg: HTMLImageElement;
+  public colorblindMode: boolean = false;
 
   constructor(private canvas: HTMLCanvasElement, camera: Camera) {
     this.ctx = canvas.getContext("2d")!;
@@ -54,11 +55,11 @@ export class Renderer {
         const { sx, sy } = this.camera.worldToScreen(x, y, canvasW, canvasH);
 
         // Fill: low-opacity wash for the claimed territory
-        ctx.fillStyle = getTerritoryColor(colorId);
+        ctx.fillStyle = getTerritoryColor(colorId, this.colorblindMode);
         ctx.fillRect(sx, sy, cs, cs);
 
         // Inner 1-px border: slightly higher opacity to give each cell definition
-        ctx.strokeStyle = getTerritoryBorderColor(colorId);
+        ctx.strokeStyle = getTerritoryBorderColor(colorId, this.colorblindMode);
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 0.5, sy + 0.5, cs - 1, cs - 1);
       }
@@ -107,14 +108,14 @@ export class Renderer {
       if (p.trail.length === 0) continue;
 
       // Fill all trail cells first (single style swap)
-      ctx.fillStyle = getTrailColor(p.colorId);
+      ctx.fillStyle = getTrailColor(p.colorId, this.colorblindMode);
       for (const [tx, ty] of p.trail) {
         const { sx, sy } = this.camera.worldToScreen(tx, ty, canvasW, canvasH);
         ctx.fillRect(sx, sy, cs, cs);
       }
 
       // Crisp 1-px stroke over each trail cell for a sharp, defined look
-      ctx.strokeStyle = getTrailStrokeColor(p.colorId);
+      ctx.strokeStyle = getTrailStrokeColor(p.colorId, this.colorblindMode);
       ctx.lineWidth = 1;
       for (const [tx, ty] of p.trail) {
         const { sx, sy } = this.camera.worldToScreen(tx, ty, canvasW, canvasH);
@@ -131,7 +132,7 @@ export class Renderer {
 
       const { sx, sy } = this.camera.worldToScreen(p.x, p.y, canvasW, canvasH);
 
-      this.ctx.fillStyle = getColor(p.colorId);
+      this.ctx.fillStyle = getColor(p.colorId, this.colorblindMode);
       this.ctx.fillRect(sx + 1, sy + 1, cs - 2, cs - 2);
       this.ctx.fillStyle = "#fff";
       this.ctx.font = "12px monospace";
@@ -163,7 +164,7 @@ export class Renderer {
       for (let x = 0; x < state.gridWidth; x++) {
         const c = state.grid[y * state.gridWidth + x];
         if (c === 0) continue;
-        ctx.fillStyle = getColor(c);
+        ctx.fillStyle = getColor(c, this.colorblindMode);
         ctx.fillRect(
           mx + x * scaleX,
           my + y * scaleY,
@@ -176,7 +177,7 @@ export class Renderer {
     // trail cells on minimap — use a brighter shade so they remain legible
     for (const p of players) {
       if (p.trail.length === 0) continue;
-      ctx.fillStyle = getTrailColor(p.colorId);
+      ctx.fillStyle = getTrailColor(p.colorId, this.colorblindMode);
       for (const [tx, ty] of p.trail) {
         ctx.fillRect(
           mx + tx * scaleX,
@@ -194,7 +195,7 @@ export class Renderer {
       const dotY = my + p.y * scaleY;
       const isMe = p.id === state.myPlayerId;
 
-      ctx.fillStyle = isMe ? "#fff" : getColor(p.colorId);
+      ctx.fillStyle = isMe ? "#fff" : getColor(p.colorId, this.colorblindMode);
       ctx.fillRect(dotX - 2, dotY - 2, isMe ? 5 : 3, isMe ? 5 : 3);
     }
   }

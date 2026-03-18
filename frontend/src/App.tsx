@@ -11,8 +11,16 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [token, setToken] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [colorblindMode, setColorblindMode] = useState(() => {
+    return localStorage.getItem("colorblindMode") === "true";
+  });
 
   const userId = token ? getUserIdFromToken(token) : null;
+
+  const handleColorblindToggle = (val: boolean) => {
+    setColorblindMode(val);
+    localStorage.setItem("colorblindMode", val.toString());
+  };
 
   if (screen === "login" || !token) {
     return (
@@ -29,6 +37,8 @@ export default function App() {
     return (
       <RoomBrowser
         token={token}
+        colorblindMode={colorblindMode}
+        onColorblindToggle={handleColorblindToggle}
         onJoinRoom={(id) => {
           setRoomId(id);
           setScreen("game");
@@ -59,6 +69,8 @@ export default function App() {
     <GameCanvas
       token={token}
       roomId={roomId ?? undefined}
+      colorblindMode={colorblindMode}
+      onColorblindToggle={handleColorblindToggle}
       onDisconnect={() => setScreen("rooms")}
       onProfile={userId ? () => setScreen("profile") : undefined}
     />

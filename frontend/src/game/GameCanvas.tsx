@@ -10,6 +10,8 @@ import PauseMenu from "../ui/PauseMenu";
 interface Props {
   token: string;
   roomId?: string;
+  colorblindMode: boolean;
+  onColorblindToggle: (val: boolean) => void;
   onDisconnect: () => void;
   onProfile?: () => void;
 }
@@ -19,13 +21,27 @@ interface SpectateInfo {
   killedBy: string | null;
 }
 
-export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
+export default function GameCanvas({
+  token,
+  roomId,
+  colorblindMode,
+  onColorblindToggle,
+  onDisconnect,
+  onProfile,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
   const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+
+  // sync colorblind mode to game loop
+  useEffect(() => {
+    if (gameLoopRef.current) {
+      gameLoopRef.current.setColorblindMode(colorblindMode);
+    }
+  }, [colorblindMode]);
 
   // keep game loop in sync when spectated player changes
   useEffect(() => {
@@ -64,6 +80,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
 
     const network = new NetworkClient();
     const gameLoop = new GameLoop(canvas, network);
+    gameLoop.setColorblindMode(colorblindMode);
     gameLoopRef.current = gameLoop;
     const input = new InputHandler(network);
 
@@ -106,7 +123,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <canvas ref={canvasRef} style={{ display: "block" }} />
       {networkClient && (
-        <Leaderboard networkClient={networkClient} />
+        <Leaderboard networkClient={networkClient} colorblindMode={colorblindMode} />
       )}
       {networkClient && (
         <KillFeed networkClient={networkClient} />
@@ -116,6 +133,8 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
           onResume={() => setPaused(false)}
           onProfile={onProfile}
           onLeave={() => { setPaused(false); onDisconnect(); }}
+          colorblindMode={colorblindMode}
+          onColorblindToggle={onColorblindToggle}
         />
       )}
       {spectate && networkClient && (

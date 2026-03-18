@@ -6,6 +6,7 @@ import { fetchLeaderboard, type LeaderboardEntry } from "../api/leaderboard";
 
 interface Props {
     networkClient: NetworkClient;
+    colorblindMode: boolean;
 }
 
 interface LiveRow {
@@ -47,7 +48,7 @@ function buildEloMap(entries: LeaderboardEntry[]): Map<string, LeaderboardEntry>
 const DISPLAY_LIMIT = 8;
 const RENDER_INTERVAL_MS = 500; // ~2 Hz
 
-export default function Leaderboard({ networkClient }: Props) {
+export default function Leaderboard({ networkClient, colorblindMode }: Props) {
     const [rows, setRows] = useState<LiveRow[]>([]);
     const [myColorId, setMyColorId] = useState<number | null>(null);
     const eloDataRef = useRef<LeaderboardEntry[]>([]);
@@ -130,7 +131,7 @@ export default function Leaderboard({ networkClient }: Props) {
                         <span
                             style={{
                                 ...styles.colorDot,
-                                background: getColor(row.colorId),
+                                background: getColor(row.colorId, colorblindMode),
                             }}
                         />
                         <span style={styles.name}>

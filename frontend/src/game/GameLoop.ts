@@ -35,6 +35,10 @@ export class GameLoop {
     this.cameraInitialized = false; // snap to new target on next frame
   }
 
+  setColorblindMode(enabled: boolean) {
+    this.renderer.colorblindMode = enabled;
+  }
+
   private tick = () => {
     if (!this.running) return;
 

@@ -3,13 +3,23 @@ import { getRooms, createRoom, type RoomInfo } from "../api/rooms";
 
 interface Props {
   token: string;
+  colorblindMode: boolean;
+  onColorblindToggle: (val: boolean) => void;
   onJoinRoom: (roomId: string) => void;
   onQuickPlay: () => void;
   onProfile: () => void;
   onLogout: () => void;
 }
 
-export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile, onLogout }: Props) {
+export default function RoomBrowser({
+  token,
+  colorblindMode,
+  onColorblindToggle,
+  onJoinRoom,
+  onQuickPlay,
+  onProfile,
+  onLogout,
+}: Props) {
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -87,6 +97,14 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
       {error && <div style={styles.error}>{error}</div>}
 
       <div style={styles.footer}>
+        <label style={styles.colorblindToggle}>
+          <input
+            type="checkbox"
+            checked={colorblindMode}
+            onChange={(e) => onColorblindToggle(e.target.checked)}
+          />
+          colorblind mode
+        </label>
         <button style={styles.footerButton} onClick={onProfile}>
           my profile
         </button>
@@ -214,5 +232,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "13px",
     fontFamily: "monospace",
     padding: 0,
+  },
+  colorblindToggle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    color: "#666",
+    fontSize: "13px",
+    cursor: "pointer",
+    userSelect: "none",
   },
 };
