@@ -14,13 +14,18 @@ export class NetworkClient {
   private onKillFeedCb: ((msg: KillFeedMessage) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
+  private onConnectFailedCb: (() => void) | null = null;
   private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
+  private hasJoined = false;
 
   connect(token: string, roomId?: string, joinCode?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     let url = `${proto}//${location.host}/ws/game?token=${token}`;
     if (roomId) url += `&roomId=${roomId}`;
+    // NOTE: joinCode is passed as a URL query parameter, meaning it may appear in
+    // server access logs and browser history. Acceptable for this use case.
     if (joinCode) url += `&joinCode=${encodeURIComponent(joinCode)}`;
+    this.hasJoined = false;
     this.ws = new WebSocket(url);
 
     this.ws.onmessage = (e) => {
@@ -30,8 +35,13 @@ export class NetworkClient {
     };
 
     this.ws.onclose = () => {
+      const joined = this.hasJoined;
       this.ws = null;
-      this.onDisconnectCb?.();
+      if (!joined) {
+        this.onConnectFailedCb?.();
+      } else {
+        this.onDisconnectCb?.();
+      }
     };
   }
 
@@ -62,6 +72,10 @@ export class NetworkClient {
 
   onDisconnect(cb: () => void) {
     this.onDisconnectCb = cb;
+  }
+
+  onConnectFailed(cb: () => void) {
+    this.onConnectFailedCb = cb;
   }
 
   onStateUpdate(cb: (state: import("./types").GameState) => void) {
@@ -114,6 +128,7 @@ export class NetworkClient {
   }
 
   private handleJoined(msg: JoinedMessage) {
+    this.hasJoined = true;
     this.myPlayerId = msg.playerId;
     this.gridWidth = msg.gridWidth;
     this.gridHeight = msg.gridHeight;

@@ -101,10 +101,11 @@ public static class GameEndpoints
 
         app.MapPost("/api/rooms", (GameRoomManager roomManager, CreateRoomRequest? request) =>
         {
+            var (gridWidth, gridHeight) = ParseGridSize(request?.GridSize);
             var settings = new RoomSettings
             {
-                GridWidth = ParseGridSize(request?.GridSize).width,
-                GridHeight = ParseGridSize(request?.GridSize).height,
+                GridWidth = gridWidth,
+                GridHeight = gridHeight,
                 MaxPlayers = Math.Clamp(request?.MaxPlayers ?? 20, 2, 50),
                 AbilitiesEnabled = request?.AbilitiesEnabled ?? true,
                 JoinCode = string.IsNullOrWhiteSpace(request?.JoinCode) ? null : request.JoinCode

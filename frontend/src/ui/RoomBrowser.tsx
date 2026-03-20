@@ -4,13 +4,14 @@ import CreateRoomModal from "./CreateRoomModal";
 
 interface Props {
   token: string;
+  joinError?: string | null;
   onJoinRoom: (roomId: string, joinCode?: string) => void;
   onQuickPlay: () => void;
   onProfile: () => void;
   onLogout: () => void;
 }
 
-export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile, onLogout }: Props) {
+export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay, onProfile, onLogout }: Props) {
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -72,7 +73,7 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
       <div style={styles.roomList}>
         {loading && <div style={styles.muted}>loading rooms...</div>}
         {!loading && rooms.length === 0 && (
-          <div style={styles.muted}>no active rooms — create one or quick play</div>
+          <div style={styles.muted}>no active rooms - create one or quick play</div>
         )}
         {rooms.map((room) => {
           const full = room.playerCount >= room.maxPlayers;
@@ -102,7 +103,7 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
         })}
       </div>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {(error || joinError) && <div style={styles.error}>{error || joinError}</div>}
 
       <div style={styles.footer}>
         <button style={styles.footerButton} onClick={onProfile}>my profile</button>
