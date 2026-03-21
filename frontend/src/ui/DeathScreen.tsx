@@ -9,7 +9,7 @@ export default function DeathScreen({ reason, killedBy, onRespawn, onProfile }: 
   return (
       <div style={styles.overlay} role={"dialog"} aria-modal="true" aria-labelledby="death-title">
         <div style={styles.box} role={"box"} aria-modal={"true"}>
-        <h2 style={styles.title}>you died</h2>
+          <h2 role={"death-title"} style={styles.title}>you died</h2>
         <p style={styles.reason}>
           {killedBy ? `killed by ${killedBy}` : reason}
         </p>
