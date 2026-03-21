@@ -57,7 +57,7 @@ export default function KillFeed({ networkClient }: Props) {
             alignItems: "flex-end",
             gap: 4,
             pointerEvents: "none",
-        }} role={"log"} aria-live="polite">
+        }} role={"log"} aria-live={"polite"}>
             {entries.map((entry) => {
                 const age = Date.now() - entry.createdAt;
                 const opacity = age > FADE_AFTER_MS * 0.7
