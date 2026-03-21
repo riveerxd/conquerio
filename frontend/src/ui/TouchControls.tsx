@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import {useEffect, useRef} from "react";
 import nipplejs from "nipplejs";
-import { NetworkClient } from "../game/NetworkClient";
-import { Direction } from "../game/types";
+import {NetworkClient} from "../game/NetworkClient";
+import {Direction} from "../game/types";
 
 interface Props {
   networkClient: NetworkClient;
@@ -17,7 +17,7 @@ export default function TouchControls({ networkClient }: Props) {
     const manager = nipplejs.create({
       zone: joystickRef.current,
       mode: "static",
-      position: { left: "80px", bottom: "80px" },
+      position: {left: "100px", bottom: "100px"},
       color: "white",
       size: 100,
     });
@@ -38,13 +38,17 @@ export default function TouchControls({ networkClient }: Props) {
       }
     });
 
+    manager.on("end", () => {
+      lastDirRef.current = null;
+    });
+
     return () => {
       manager.destroy();
     };
   }, [networkClient]);
 
   const handleAbility = (ability: string) => {
-    networkClient.sendAbility(ability.toUpperCase());
+    networkClient.sendAbility(ability);
   };
 
   return (
