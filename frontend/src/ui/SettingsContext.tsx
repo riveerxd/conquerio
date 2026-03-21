@@ -45,7 +45,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const saved = localStorage.getItem('conquerio_settings');
     if (saved) {
       try {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return { 
+          ...DEFAULT_SETTINGS, 
+          ...parsed, 
+          keybinds: { ...DEFAULT_SETTINGS.keybinds, ...parsed.keybinds } 
+        };
       } catch (e) {
         console.error('Failed to parse settings', e);
       }

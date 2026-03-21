@@ -40,9 +40,6 @@ export class InputHandler {
     if (key === keybinds.down || key === "ArrowDown") return "down";
     if (key === keybinds.left || key === "ArrowLeft") return "left";
     if (key === keybinds.right || key === "ArrowRight") return "right";
-    
-    // Support default WASD even if remapped? Maybe not, better to be strict or allow both.
-    // Let's stick to strict custom + arrows as backup for now.
     return null;
   }
 

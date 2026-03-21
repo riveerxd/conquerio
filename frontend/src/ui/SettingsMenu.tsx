@@ -14,6 +14,14 @@ export default function SettingsMenu({ onBack }: Props) {
 
     const onKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
+      e.stopPropagation();
+      
+      // Cancel capture with Escape, don't allow binding Escape as an action
+      if (e.key === 'Escape') {
+        setCapturing(null);
+        return;
+      }
+      
       const newKeybinds = { ...settings.keybinds, [capturing]: e.key };
       updateSettings({ keybinds: newKeybinds });
       setCapturing(null);
@@ -26,12 +34,23 @@ export default function SettingsMenu({ onBack }: Props) {
   const renderKeybind = (key: keyof Keybinds, label: string) => (
     <div style={styles.settingRow} key={key}>
       <span style={styles.label}>{label}</span>
-      <button
-        style={{ ...styles.keyBtn, ...(capturing === key ? styles.capturing : {}) }}
-        onClick={() => setCapturing(key)}
-      >
-        {capturing === key ? 'Press any key...' : settings.keybinds[key] === ' ' ? 'Space' : settings.keybinds[key]}
-      </button>
+      <div style={styles.keybindContainer}>
+        <button
+          style={{ ...styles.keyBtn, ...(capturing === key ? styles.capturing : {}) }}
+          onClick={() => setCapturing(key)}
+          disabled={capturing !== null && capturing !== key}
+        >
+          {capturing === key ? 'Press any key... (ESC to cancel)' : settings.keybinds[key] === ' ' ? 'Space' : settings.keybinds[key]}
+        </button>
+        {capturing === key && (
+          <button
+            style={styles.cancelBtn}
+            onClick={() => setCapturing(null)}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -148,6 +167,11 @@ const styles: Record<string, React.CSSProperties> = {
   label: {
     fontSize: 14,
   },
+  keybindContainer: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  },
   keyBtn: {
     minWidth: "120px",
     padding: "6px 12px",
@@ -161,6 +185,16 @@ const styles: Record<string, React.CSSProperties> = {
   capturing: {
     background: "#444",
     borderColor: "#fff",
+  },
+  cancelBtn: {
+    padding: "6px 12px",
+    background: "#555",
+    border: "1px solid #777",
+    color: "#fff",
+    fontFamily: "monospace",
+    cursor: "pointer",
+    fontSize: 12,
+    textTransform: "uppercase",
   },
   checkbox: {
     cursor: "pointer",
