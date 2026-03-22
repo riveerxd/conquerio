@@ -6,9 +6,9 @@ interface Props {
 
 export default function PauseMenu({ onResume, onProfile, onLeave }: Props) {
   return (
-      <div style={styles.overlay} onClick={onResume} role={"dialog"} aria-modal="true" aria-labelledby="pause-title">
+      <div style={styles.overlay} onClick={onResume} role={"dialog"} aria-modal aria-labelledby="pause-title">
       <div style={styles.box} onClick={(e) => e.stopPropagation()}>
-        <h2 style={styles.title}>menu</h2>
+          <h2 id="pause-title" style={styles.title}>menu</h2>
         <button onClick={onResume} style={styles.btn}>resume</button>
         {onProfile && (
           <button onClick={onProfile} style={styles.btn}>my stats</button>
