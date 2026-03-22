@@ -16,6 +16,7 @@ export interface GameSettings {
   showGrid: boolean;
   minimapSize: number;
   minimapPosition: MinimapPosition;
+  colorblindMode: boolean;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -30,11 +31,12 @@ const DEFAULT_SETTINGS: GameSettings = {
   showGrid: true,
   minimapSize: 150,
   minimapPosition: 'top-right',
+  colorblindMode: false,
 };
 
 interface SettingsContextType {
   settings: GameSettings;
-  updateSettings: (newSettings: Partial<GameSettings>) => void;
+  updateSettings: (newSettings: Partial<Omit<GameSettings, 'keybinds'>> & { keybinds?: Partial<Keybinds> }) => void;
   resetSettings: () => void;
 }
 
@@ -62,11 +64,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('conquerio_settings', JSON.stringify(settings));
   }, [settings]);
 
-  const updateSettings = (newSettings: Partial<GameSettings>) => {
+  const updateSettings = (newSettings: Partial<Omit<GameSettings, 'keybinds'>> & { keybinds?: Partial<Keybinds> }) => {
       setSettings((prev) => {
-          const updated = {...prev, ...newSettings};
+          const updated: GameSettings = {...prev, ...newSettings, keybinds: prev.keybinds};
           if (newSettings.keybinds) {
-              updated.keybinds = {...prev.keybinds, ...newSettings.keybinds};
+              updated.keybinds = {...prev.keybinds, ...newSettings.keybinds} as Keybinds;
           }
           return updated;
       });

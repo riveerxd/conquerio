@@ -88,12 +88,13 @@ public static class AuthEndpoints
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id),
             new Claim(ClaimTypes.Name, user.UserName!),
-            new Claim(ClaimTypes.Email, user.Email!)
         };
+        if (user.Email is not null)
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
 
         var token = new JwtSecurityToken(
             issuer: jwtSettings["Issuer"],

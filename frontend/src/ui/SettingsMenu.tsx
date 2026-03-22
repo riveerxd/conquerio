@@ -99,6 +99,15 @@ export default function SettingsMenu({ onBack }: Props) {
             />
           </div>
           <div style={styles.settingRow}>
+            <span style={styles.label}>Colorblind Mode</span>
+            <input
+              type="checkbox"
+              checked={settings.colorblindMode}
+              onChange={(e) => updateSettings({ colorblindMode: e.target.checked })}
+              style={styles.checkbox}
+            />
+          </div>
+          <div style={styles.settingRow}>
             <span style={styles.label}>Minimap Size</span>
             <input
               type="range"

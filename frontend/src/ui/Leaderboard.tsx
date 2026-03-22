@@ -3,6 +3,7 @@ import type {NetworkClient} from "../game/NetworkClient";
 import type {GameState} from "../game/types";
 import {getColor} from "../game/colors";
 import {fetchLeaderboard, type LeaderboardEntry} from "../api/leaderboard";
+import {useSettings} from "./SettingsContext";
 
 interface Props {
     networkClient: NetworkClient;
@@ -52,6 +53,7 @@ export default function Leaderboard({ networkClient }: Props) {
     const [myColorId, setMyColorId] = useState<number | null>(null);
     const eloDataRef = useRef<LeaderboardEntry[]>([]);
     const lastRenderRef = useRef<number>(0);
+    const { settings } = useSettings();
 
     // Fetch Elo data every 30 s
     useEffect(() => {
@@ -130,7 +132,7 @@ export default function Leaderboard({ networkClient }: Props) {
                         <span
                             style={{
                                 ...styles.colorDot,
-                                background: getColor(row.colorId),
+                                background: getColor(row.colorId, settings.colorblindMode),
                             }}
                         />
                         <span style={styles.name}>
