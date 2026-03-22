@@ -9,10 +9,12 @@ public class GameRoom
 {
     public string RoomId { get; }
     public string Name { get; }
-    public int GridWidth { get; } = 200;
-    public int GridHeight { get; } = 200;
+    public int GridWidth { get; }
+    public int GridHeight { get; }
     public int TickRate { get; } = 20;
-    public int MaxPlayers { get; } = 20;
+    public int MaxPlayers { get; }
+    public bool AbilitiesEnabled { get; }
+    public string? JoinCode { get; }
     private int TotalCells => GridWidth * GridHeight;
 
     public byte[,] Grid { get; }
@@ -27,10 +29,15 @@ public class GameRoom
     private readonly List<GridCell> _gridDiff = new();
     private readonly Random _rng = new();
 
-    public GameRoom(string roomId, string name)
+    public GameRoom(string roomId, string name, RoomSettings? settings = null)
     {
         RoomId = roomId;
         Name = name;
+        GridWidth = settings?.GridWidth ?? 200;
+        GridHeight = settings?.GridHeight ?? 200;
+        MaxPlayers = settings?.MaxPlayers ?? 20;
+        AbilitiesEnabled = settings?.AbilitiesEnabled ?? true;
+        JoinCode = settings?.JoinCode;
         Grid = new byte[GridWidth, GridHeight];
     }
 
@@ -77,8 +84,11 @@ public class GameRoom
             OwnedCells = spawnCells
         };
 
-        player.Abilities.Add(new BoostAbility(this, player));
-        player.Abilities.Add(new ShieldAbility(this, player));
+        if (AbilitiesEnabled)
+        {
+            player.Abilities.Add(new BoostAbility(this, player));
+            player.Abilities.Add(new ShieldAbility(this, player));
+        }
 
         Players[playerId] = player;
 
