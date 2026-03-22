@@ -59,18 +59,19 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
         </button>
       </div>
 
-      <div style={styles.roomList}>
+        <div style={styles.roomList} role="list" aria-label="Available rooms">
         {loading && <div style={styles.muted}>loading rooms...</div>}
         {!loading && rooms.length === 0 && (
           <div style={styles.muted}>no active rooms - create one or quick play</div>
         )}
         {rooms.map((room) => {
           const full = room.playerCount >= room.maxPlayers;
+            const ariaLabel = `${room.name}, ${room.playerCount} of ${room.maxPlayers} players${full ? ", full" : ""}`;
           return (
-            <div key={room.id} style={styles.roomCard}>
+              <div key={room.id} style={styles.roomCard} role="listitem" aria-label={ariaLabel}>
               <div style={styles.roomInfo}>
                 <span style={styles.roomName}>{room.name}</span>
-                <span style={full ? styles.playerCountFull : styles.playerCount}>
+                  <span style={full ? styles.playerCountFull : styles.playerCount} aria-hidden="true">
                   {room.playerCount}/{room.maxPlayers}
                 </span>
               </div>
@@ -78,6 +79,7 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
                 style={full ? styles.joinButtonDisabled : styles.joinButton}
                 disabled={full}
                 onClick={() => onJoinRoom(room.id)}
+                aria-label={full ? `Room ${room.name} is full` : `Join room ${room.name}`}
               >
                 {full ? "full" : "join"}
               </button>

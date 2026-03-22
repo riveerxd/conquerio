@@ -16,6 +16,14 @@ public static class AuthEndpoints
             RegisterRequest request,
             UserManager<AppUser> userManager) =>
         {
+            if (request.Username.Contains("@"))
+            {
+                return Results.BadRequest(new
+                {
+                    errors = new[] { "Username cannot contain '@' and cannot be an email address." }
+                });
+            }
+
             var user = new AppUser
             {
                 UserName = request.Username,

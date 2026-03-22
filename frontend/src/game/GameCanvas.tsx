@@ -1,13 +1,14 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { NetworkClient } from "./NetworkClient";
-import { GameLoop } from "./GameLoop";
-import { InputHandler } from "./InputHandler";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {NetworkClient} from "./NetworkClient";
+import {GameLoop} from "./GameLoop";
+import {InputHandler} from "./InputHandler";
 import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
 import SpectateOverlay from "../ui/SpectateOverlay";
 import PauseMenu from "../ui/PauseMenu";
 import SettingsMenu from "../ui/SettingsMenu";
 import { useSettings } from "../ui/SettingsContext";
+import TouchControls from "../ui/TouchControls";
 
 interface Props {
   token: string;
@@ -31,6 +32,11 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
   const [paused, setPaused] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   // keep game loop and input in sync when settings change
   useEffect(() => {
@@ -127,12 +133,20 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <canvas ref={canvasRef} style={{ display: "block" }} />
+      <canvas
+        ref={canvasRef}
+        style={{ display: "block" }}
+        role="img"
+        aria-label="Conquerio game arena where players compete for territory"
+      />
       {networkClient && (
         <Leaderboard networkClient={networkClient} />
       )}
       {networkClient && (
         <KillFeed networkClient={networkClient} />
+      )}
+      {networkClient && isTouchDevice && !spectate && !paused && (
+        <TouchControls networkClient={networkClient} />
       )}
       {paused && !spectate && !showSettings && (
         <PauseMenu
