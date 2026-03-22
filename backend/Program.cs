@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,6 +70,14 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
+// HSTS
+builder.Services.AddHsts(options =>
+{
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
+});
+
 builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
@@ -95,8 +104,31 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+// Enable HSTS in non-development environments
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseResponseCompression();
 app.UseWebSockets();
+
+// Content-Security-Policy (CSP)
+var productionCsp = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss: https:; img-src 'self' data:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+var developmentCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: ws: http: https:; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+var cspToUse = app.Environment.IsDevelopment() ? developmentCsp : productionCsp;
+
+app.Use(async (context, next) =>
+{
+    // Add CSP header if not already present
+    if (!context.Response.Headers.ContainsKey("Content-Security-Policy"))
+    {
+        context.Response.Headers.Append("Content-Security-Policy", cspToUse);
+    }
+
+    await next(context);
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
