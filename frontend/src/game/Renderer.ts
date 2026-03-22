@@ -11,7 +11,6 @@ import type { GameSettings } from "../ui/SettingsContext";
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
-  private canvas: HTMLCanvasElement;
   private camera: Camera;
   private boostImg: HTMLImageElement;
   private shieldImg: HTMLImageElement;
@@ -19,7 +18,6 @@ export class Renderer {
   private isTouchDevice: boolean;
 
   constructor(canvas: HTMLCanvasElement, camera: Camera, initialSettings: GameSettings, isTouchDevice = false) {
-    this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.camera = camera;
     this.settings = initialSettings;
