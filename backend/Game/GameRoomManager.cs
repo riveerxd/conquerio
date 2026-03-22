@@ -12,7 +12,7 @@ public class GameRoomManager
 
     public GameRoom GetOrCreateRoom()
     {
-        // pick the non-empty, non-full, public room with the most players
+        // pick the non-empty, non-full, non-private room with the most players
         GameRoom? best = null;
         foreach (var room in _rooms.Values)
         {
@@ -21,7 +21,7 @@ public class GameRoomManager
                 best = room;
         }
 
-        return best ?? CreateRoom(null, null);
+        return best ?? CreateRoom(null);
     }
 
     public GameRoom CreateRoom(string? name, RoomSettings? settings = null)

@@ -34,11 +34,11 @@ export async function createRoom(token: string, settings: CreateRoomSettings): P
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      name: settings.name || undefined,
+      name: settings.name,
       gridSize: settings.gridSize,
       maxPlayers: settings.maxPlayers,
       abilitiesEnabled: settings.abilitiesEnabled,
-      joinCode: settings.joinCode || undefined,
+      joinCode: settings.joinCode,
     }),
   });
   if (!res.ok) throw new Error(`failed to create room: ${res.status}`);

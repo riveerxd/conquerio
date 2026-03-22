@@ -64,4 +64,9 @@ export interface KillFeedMessage {
   reason: string;
 }
 
-export type ServerMessage = JoinedMessage | StateMessage | DeathMessage | KillFeedMessage | { type: "pong"; t: number } | { type: "error"; msg: string };
+export interface WinMessage {
+  type: "win";
+  winnerName: string;
+}
+
+export type ServerMessage = JoinedMessage | StateMessage | DeathMessage | KillFeedMessage | WinMessage | { type: "pong"; t: number } | { type: "error"; msg: string };

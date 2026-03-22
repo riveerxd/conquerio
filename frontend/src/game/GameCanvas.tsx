@@ -9,6 +9,7 @@ import PauseMenu from "../ui/PauseMenu";
 import SettingsMenu from "../ui/SettingsMenu";
 import { useSettings } from "../ui/SettingsContext";
 import TouchControls from "../ui/TouchControls";
+import WinScreen from "../ui/WinScreen";
 
 interface Props {
   token: string;
@@ -24,21 +25,23 @@ interface SpectateInfo {
   killedBy: string | null;
 }
 
+interface WinInfo {
+  winnerName: string;
+  isLocalWinner: boolean;
+}
+
 export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onConnectFailed, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const { settings } = useSettings();
   const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
+  const [win, setWin] = useState<WinInfo | null>(null);
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-
-  useEffect(() => {
-    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  }, []);
+  const [isTouchDevice] = useState(() => "ontouchstart" in window || navigator.maxTouchPoints > 0);
 
   // keep game loop and input in sync when settings change
   useEffect(() => {
@@ -63,6 +66,7 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
   const handleRespawn = useCallback(() => {
     setSpectate(null);
     setSpectatedPlayerId(null);
+    setWin(null);
     setSessionKey((k) => k + 1);
   }, []);
 
@@ -92,7 +96,7 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
     window.addEventListener("resize", resize);
 
     const network = new NetworkClient();
-    const gameLoop = new GameLoop(canvas, network, settings);
+    const gameLoop = new GameLoop(canvas, network, settings, isTouchDevice);
     gameLoopRef.current = gameLoop;
     const input = new InputHandler(network, settings);
     inputHandlerRef.current = input;
@@ -112,6 +116,14 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
         setSpectatedPlayerId(firstAlive.id);
         gameLoop.setSpectateTarget(firstAlive.id);
       }
+    });
+
+    network.onWin((msg) => {
+      const state = network.getState();
+      const isLocalWinner = state?.players.find(
+        (p) => p.id === state.myPlayerId
+      )?.username === msg.winnerName;
+      setWin({ winnerName: msg.winnerName, isLocalWinner });
     });
 
     let intentionalDisconnect = false;
@@ -141,7 +153,7 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <canvas
         ref={canvasRef}
-        style={{ display: "block" }}
+        style={{ display: "block", touchAction: "none" }}
         role="img"
         aria-label="Conquerio game arena where players compete for territory"
       />
@@ -152,7 +164,7 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
         <KillFeed networkClient={networkClient} />
       )}
       {networkClient && isTouchDevice && !spectate && !paused && (
-        <TouchControls networkClient={networkClient} />
+        <TouchControls networkClient={networkClient} onPause={() => setPaused(true)} />
       )}
       {paused && !spectate && !showSettings && (
         <PauseMenu
@@ -165,7 +177,15 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
       {showSettings && (
         <SettingsMenu onBack={() => setShowSettings(false)} />
       )}
-      {spectate && networkClient && (
+      {win && (
+        <WinScreen
+          winnerName={win.winnerName}
+          isLocalWinner={win.isLocalWinner}
+          onPlay={handleRespawn}
+          onProfile={onProfile}
+        />
+      )}
+      {spectate && !win && networkClient && (
         <SpectateOverlay
           networkClient={networkClient}
           killedBy={spectate.killedBy}
@@ -176,6 +196,7 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
           onProfile={onProfile}
         />
       )}
+
     </div>
   );
 }

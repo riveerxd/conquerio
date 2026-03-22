@@ -12,7 +12,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [token, setToken] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState<string | undefined>(undefined);
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const userId = token ? getUserIdFromToken(token) : null;
@@ -36,13 +36,13 @@ export default function App() {
           joinError={joinError}
           onJoinRoom={(id, code) => {
             setRoomId(id);
-            setJoinCode(code ?? null);
+            setJoinCode(code);
             setJoinError(null);
             setScreen("game");
           }}
           onQuickPlay={() => {
             setRoomId(null);
-            setJoinCode(null);
+            setJoinCode(undefined);
             setJoinError(null);
             setScreen("game");
           }}
@@ -68,7 +68,7 @@ export default function App() {
       <GameCanvas
         token={token}
         roomId={roomId ?? undefined}
-        joinCode={joinCode ?? undefined}
+        joinCode={joinCode}
         onDisconnect={() => { setJoinError(null); setScreen("rooms"); }}
         onConnectFailed={() => { setJoinError("wrong join code"); setScreen("rooms"); }}
         onProfile={userId ? () => setScreen("profile") : undefined}

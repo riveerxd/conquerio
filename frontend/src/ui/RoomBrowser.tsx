@@ -43,6 +43,7 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
     setCreating(true);
     try {
       const room = await createRoom(token, settings);
+      setCreating(false);
       setShowModal(false);
       onJoinRoom(room.id, settings.joinCode);
     } catch {
@@ -140,12 +141,12 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
               value={joinPrompt.code}
               onChange={(e) => setJoinPrompt({ ...joinPrompt, code: e.target.value })}
               onKeyDown={(e) => {
-                if (e.key === "Enter") { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code); }
+                if (e.key === "Enter") { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code.trim()); }
               }}
             />
             <div style={styles.promptActions}>
               <button style={styles.promptCancel} onClick={() => setJoinPrompt(null)}>cancel</button>
-              <button style={styles.promptJoin} onClick={() => { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code); }}>
+              <button style={styles.promptJoin} onClick={() => { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code.trim()); }}>
                 join
               </button>
             </div>

@@ -23,8 +23,10 @@ public class GameRoom
 
     /// <summary>Fired on the tick thread whenever a player is killed.</summary>
     public event Action<PlayerDeathEvent>? PlayerDied;
+    public event Action<PlayerWonEvent>? PlayerWon;
 
     private long _tick;
+    private bool _gameEnded;
     private byte _nextColorId = 1;
     private readonly List<GridCell> _gridDiff = new();
     private readonly Random _rng = new();
@@ -33,16 +35,15 @@ public class GameRoom
     {
         RoomId = roomId;
         Name = name;
-        var s = settings ?? new RoomSettings();
-        GridWidth = s.GridWidth;
-        GridHeight = s.GridHeight;
-        MaxPlayers = s.MaxPlayers;
-        AbilitiesEnabled = s.AbilitiesEnabled;
-        JoinCode = s.JoinCode;
+        GridWidth = settings?.GridWidth ?? 200;
+        GridHeight = settings?.GridHeight ?? 200;
+        MaxPlayers = settings?.MaxPlayers ?? 20;
+        AbilitiesEnabled = settings?.AbilitiesEnabled ?? true;
+        JoinCode = settings?.JoinCode;
         Grid = new byte[GridWidth, GridHeight];
     }
 
-    public bool IsFull => Players.Values.Count(p => p.IsAlive) >= MaxPlayers;
+    public bool IsFull => _gameEnded || Players.Values.Count(p => p.IsAlive) >= MaxPlayers;
 
     public PlayerState AddPlayer(string playerId, string username, System.Net.WebSockets.WebSocket socket)
     {
@@ -118,6 +119,7 @@ public class GameRoom
 
     public void Tick()
     {
+        if (_gameEnded) return;
         _tick++;
         _gridDiff.Clear();
 
@@ -516,6 +518,45 @@ public class GameRoom
                 player.Kills++;
                 KillPlayer(other, player.PlayerId, "encircled");
             }
+        }
+
+        // check if the player filled the entire map
+        if (player.OwnedCells >= TotalCells)
+            EndGame(player);
+    }
+
+    private void EndGame(PlayerState winner)
+    {
+        _gameEnded = true;
+
+        var winMsg = new WinMessage { WinnerName = winner.Username };
+        foreach (var p in Players.Values)
+        {
+            if (p.Socket.State == System.Net.WebSockets.WebSocketState.Open)
+                _ = MessageSerializer.SendAsync(p.Socket, winMsg);
+        }
+
+        foreach (var other in Players.Values)
+        {
+            if (!other.IsAlive || other.PlayerId == winner.PlayerId) continue;
+            KillPlayer(other, null, "game_over");
+        }
+
+        Log.Information("Player {PlayerId} won room {RoomId} by filling the map.", winner.PlayerId, RoomId);
+
+        var evt = new PlayerWonEvent(
+            WinnerId: winner.PlayerId,
+            Kills: winner.Kills,
+            MaxTerritoryPct: winner.MaxTerritoryPct,
+            StartedAtUtc: winner.StartedAt);
+
+        var handlers = PlayerWon;
+        if (handlers is null) return;
+
+        foreach (var d in handlers.GetInvocationList())
+        {
+            try { ((Action<PlayerWonEvent>)d)(evt); }
+            catch { }
         }
     }
 

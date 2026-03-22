@@ -102,15 +102,15 @@ public static class GameEndpoints
         app.MapPost("/api/rooms", (GameRoomManager roomManager, CreateRoomRequest? request) =>
         {
             var (gridWidth, gridHeight) = ParseGridSize(request?.GridSize);
+            var maxPlayers = Math.Clamp(request?.MaxPlayers ?? 20, 2, 100);
             var settings = new RoomSettings
             {
                 GridWidth = gridWidth,
                 GridHeight = gridHeight,
-                MaxPlayers = Math.Clamp(request?.MaxPlayers ?? 20, 2, 50),
+                MaxPlayers = maxPlayers,
                 AbilitiesEnabled = request?.AbilitiesEnabled ?? true,
                 JoinCode = string.IsNullOrWhiteSpace(request?.JoinCode) ? null : request.JoinCode
             };
-
             var room = roomManager.CreateRoom(request?.Name, settings);
 
             return Results.Ok(new
@@ -130,19 +130,14 @@ public static class GameEndpoints
         .WithDescription("Manually creates a new game room where players can join.");
     }
 
-    private static string GridSizeLabel(int width) => width switch
-    {
-        <= 100 => "small",
-        <= 200 => "medium",
-        _ => "large"
-    };
-
-    private static (int width, int height) ParseGridSize(string? size) => size?.ToLower() switch
+    private static (int Width, int Height) ParseGridSize(string? gridSize) => gridSize?.ToLowerInvariant() switch
     {
         "small" => (100, 100),
         "large" => (300, 300),
         _ => (200, 200)
     };
+
+    private static string GridSizeLabel(int width) => width <= 100 ? "small" : width >= 300 ? "large" : "medium";
 }
 
 record CreateRoomRequest(string? Name, string? GridSize, int? MaxPlayers, bool? AbilitiesEnabled, string? JoinCode);
