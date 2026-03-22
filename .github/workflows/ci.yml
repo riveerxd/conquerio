@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: run backend tests
+        run: dotnet test backend/UnitTests/UnitTests.csproj
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: install frontend deps
+        run: npm ci
+        working-directory: frontend
+
+      - name: check for vulnerabilities
+        run: npm audit --audit-level=high
+        working-directory: frontend
+
+      - name: build frontend
+        run: npm run build
+        working-directory: frontend
