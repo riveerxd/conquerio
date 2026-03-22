@@ -17,7 +17,7 @@ export default function TouchControls({ networkClient }: Props) {
     const manager = nipplejs.create({
       zone: joystickRef.current,
       mode: "static",
-      position: {left: "100px", bottom: "100px"},
+        position: {left: "50%", bottom: "50%"},
       color: "white",
       size: 100,
     });
@@ -83,10 +83,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   joystickZone: {
     position: "absolute",
-    left: 0,
-    bottom: 0,
+      left: "50%",
+      bottom: "50%",
     width: "200px",
     height: "200px",
+      transform: "translate(-50%, 50%)",
     pointerEvents: "auto",
   },
   buttonZone: {

@@ -1,7 +1,7 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { NetworkClient } from "./NetworkClient";
-import { GameLoop } from "./GameLoop";
-import { InputHandler } from "./InputHandler";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {NetworkClient} from "./NetworkClient";
+import {GameLoop} from "./GameLoop";
+import {InputHandler} from "./InputHandler";
 import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
 import SpectateOverlay from "../ui/SpectateOverlay";
@@ -117,7 +117,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       {networkClient && (
         <KillFeed networkClient={networkClient} />
       )}
-      {networkClient && isTouchDevice && !spectate && (
+        {networkClient && isTouchDevice && !spectate && !paused && (
         <TouchControls networkClient={networkClient} />
       )}
       {paused && !spectate && (
