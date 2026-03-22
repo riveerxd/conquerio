@@ -1,25 +1,25 @@
-import React, {useEffect, useState} from "react";
-import {createRoom, getRooms, type RoomInfo} from "../api/rooms";
-import SettingsMenu from "./SettingsMenu";
+import { useEffect, useState } from "react";
+import { getRooms, createRoom, type RoomInfo, type CreateRoomSettings } from "../api/rooms";
 import CreateRoomModal from "./CreateRoomModal";
+import SettingsMenu from "./SettingsMenu";
 
 interface Props {
   token: string;
+  joinError?: string | null;
   onJoinRoom: (roomId: string, joinCode?: string) => void;
   onQuickPlay: () => void;
   onProfile: () => void;
   onLogout: () => void;
 }
 
-export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile, onLogout }: Props) {
+export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay, onProfile, onLogout }: Props) {
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
+  const [joinPrompt, setJoinPrompt] = useState<{ room: RoomInfo; code: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  // joinPrompt holds the roomId whose join-code dialog is open + the typed code
-  const [joinPrompt, setJoinPrompt] = useState<{ roomId: string; code: string } | null>(null);
-  const [joinError, setJoinError] = useState("");
 
   const fetchRooms = async () => {
     try {
@@ -39,23 +39,25 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
     return () => clearInterval(interval);
   }, []);
 
-  const handleJoinClick = (room: RoomInfo) => {
-    if (room.isPrivate) {
-      setJoinError("");
-      setJoinPrompt({ roomId: room.id, code: "" });
-    } else {
-      onJoinRoom(room.id);
+  const handleCreate = async (settings: CreateRoomSettings) => {
+    setCreating(true);
+    try {
+      const room = await createRoom(token, settings);
+      setCreating(false);
+      setShowModal(false);
+      onJoinRoom(room.id, settings.joinCode);
+    } catch {
+      setError("failed to create room");
+      setCreating(false);
     }
   };
 
-  const handleJoinWithCode = () => {
-    if (!joinPrompt) return;
-    if (joinPrompt.code.trim() === "") {
-      setJoinError("enter the join code");
-      return;
+  const handleJoinClick = (room: RoomInfo) => {
+    if (room.isPrivate) {
+      setJoinPrompt({ room, code: "" });
+    } else {
+      onJoinRoom(room.id);
     }
-    onJoinRoom(joinPrompt.roomId, joinPrompt.code.trim());
-    setJoinPrompt(null);
   };
 
   return (
@@ -66,51 +68,33 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
         <button style={styles.primaryButton} onClick={onQuickPlay}>
           quick play
         </button>
-        <button style={styles.secondaryButton} onClick={() => setShowCreateModal(true)}>
+        <button style={styles.secondaryButton} onClick={() => setShowModal(true)}>
           create room
         </button>
       </div>
 
-      <h2 style={styles.sectionHeading}>active rooms</h2>
-      <div style={styles.roomList} role="list" aria-label="Available rooms">
+        <h2 style={styles.sectionHeading}>active rooms</h2>
+        <div style={styles.roomList} role="list" aria-label="Available rooms">
         {loading && <div style={styles.muted}>loading rooms...</div>}
         {!loading && rooms.length === 0 && (
           <div style={styles.muted}>no active rooms - create one or quick play</div>
         )}
         {rooms.map((room) => {
           const full = room.playerCount >= room.maxPlayers;
-          const ariaLabel = `${room.name}, ${room.playerCount} of ${room.maxPlayers} players${full ? ", full" : ""}${room.isPrivate ? ", private" : ""}`;
+            const ariaLabel = `${room.name}, ${room.playerCount} of ${room.maxPlayers} players${full ? ", full" : ""}`;
           return (
-            <div key={room.id} style={styles.roomCard} role="listitem" aria-label={ariaLabel}>
+              <div key={room.id} style={styles.roomCard} role="listitem" aria-label={ariaLabel}>
               <div style={styles.roomInfo}>
                 <div style={styles.roomNameRow}>
-                  {room.isPrivate && <span style={styles.lockIcon} title="Private room">&#128274;</span>}
-                  <span style={styles.roomName}>{room.name}</span>
+                  <span style={styles.roomName}>{room.isPrivate ? "🔒 " : ""}{room.name}</span>
                 </div>
-                <div style={styles.tagRow}>
+                <div style={styles.roomTags}>
                   <span style={styles.tag}>{room.gridSize}</span>
-                  {!room.abilitiesEnabled && <span style={styles.tag}>no abilities</span>}
-                  <span style={full ? styles.playerCountFull : styles.playerCount} aria-hidden="true">
+                  {room.abilitiesEnabled && <span style={styles.tag}>abilities</span>}
+                  <span style={full ? styles.playerCountFull : styles.playerCount}>
                     {room.playerCount}/{room.maxPlayers}
                   </span>
                 </div>
-                {joinPrompt?.roomId === room.id && (
-                  <div style={styles.codePrompt} onClick={(e) => e.stopPropagation()}>
-                    <input
-                      style={styles.codeInput}
-                      type="text"
-                      placeholder="join code"
-                      value={joinPrompt.code}
-                      maxLength={32}
-                      autoFocus
-                      onChange={(e) => { setJoinPrompt({ ...joinPrompt, code: e.target.value }); setJoinError(""); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleJoinWithCode(); if (e.key === "Escape") setJoinPrompt(null); }}
-                    />
-                    <button style={styles.codeSubmit} onClick={handleJoinWithCode}>go</button>
-                    <button style={styles.codeCancel} onClick={() => setJoinPrompt(null)}>✕</button>
-                    {joinError && <span style={styles.codeError}>{joinError}</span>}
-                  </div>
-                )}
               </div>
               <button
                 style={full ? styles.joinButtonDisabled : styles.joinButton}
@@ -118,44 +102,56 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
                 onClick={() => handleJoinClick(room)}
                 aria-label={full ? `Room ${room.name} is full` : `Join room ${room.name}`}
               >
-                {full ? "full" : "join"}
+                {full ? "full" : room.isPrivate ? "enter code" : "join"}
               </button>
             </div>
           );
         })}
       </div>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {(error || joinError) && <div style={styles.error}>{error || joinError}</div>}
 
       <div style={styles.footer}>
-        <button style={styles.footerButton} onClick={() => setShowSettings(true)}>
-          settings
-        </button>
-        <button style={styles.footerButton} onClick={onProfile}>
-          my profile
-        </button>
-        <button style={styles.footerButton} onClick={onLogout}>
-          logout
-        </button>
+        <button style={styles.footerButton} onClick={() => setShowSettings(true)}>settings</button>
+        <button style={styles.footerButton} onClick={onProfile}>my profile</button>
+        <button style={styles.footerButton} onClick={onLogout}>logout</button>
       </div>
 
       {showSettings && (
         <SettingsMenu onBack={() => setShowSettings(false)} />
       )}
 
-      {showCreateModal && (
+      {showModal && (
         <CreateRoomModal
-          onConfirm={async (settings) => {
-            setShowCreateModal(false);
-            try {
-              const room = await createRoom(token, settings);
-              onJoinRoom(room.id, settings.joinCode);
-            } catch {
-              setError("failed to create room");
-            }
-          }}
-          onCancel={() => setShowCreateModal(false)}
+          loading={creating}
+          onConfirm={handleCreate}
+          onClose={() => setShowModal(false)}
         />
+      )}
+
+      {joinPrompt && (
+        <div style={styles.promptBackdrop} onClick={() => setJoinPrompt(null)}>
+          <div style={styles.promptBox} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.promptTitle}>🔒 private room</h3>
+            <p style={styles.promptSub}>{joinPrompt.room.name}</p>
+            <input
+              style={styles.promptInput}
+              placeholder="enter join code"
+              autoFocus
+              value={joinPrompt.code}
+              onChange={(e) => setJoinPrompt({ ...joinPrompt, code: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code.trim()); }
+              }}
+            />
+            <div style={styles.promptActions}>
+              <button style={styles.promptCancel} onClick={() => setJoinPrompt(null)}>cancel</button>
+              <button style={styles.promptJoin} onClick={() => { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code.trim()); }}>
+                join
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -216,91 +212,45 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: "8px",
     width: "100%",
-    maxWidth: "400px",
+    maxWidth: "440px",
   },
   roomCard: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     padding: "12px 16px",
-    background: "#222",
-    border: "1px solid #333",
+    background: "#1a1a1a",
+    border: "1px solid #2a2a2a",
   },
   roomInfo: {
     display: "flex",
     flexDirection: "column",
-    gap: "4px",
-    flex: 1,
+    gap: "5px",
   },
   roomNameRow: {
     display: "flex",
     alignItems: "center",
     gap: "6px",
   },
-  lockIcon: {
-    fontSize: "12px",
-  },
   roomName: {
     fontSize: "14px",
     color: "#fff",
   },
-  tagRow: {
+  roomTags: {
     display: "flex",
-    alignItems: "center",
     gap: "8px",
-    flexWrap: "wrap",
+    alignItems: "center",
   },
   tag: {
     fontSize: "11px",
-    color: "#888",
-    background: "#333",
-    padding: "1px 6px",
+    color: "#555",
   },
   playerCount: {
     fontSize: "12px",
-    color: "#999",
+    color: "#666",
   },
   playerCountFull: {
     fontSize: "12px",
-    color: "#e74c3c",
-  },
-  codePrompt: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    flexWrap: "wrap",
-    marginTop: "6px",
-  },
-  codeInput: {
-    padding: "4px 8px",
-    background: "#111",
-    border: "1px solid #555",
-    color: "#fff",
-    fontFamily: "monospace",
-    fontSize: "13px",
-    width: "140px",
-  },
-  codeSubmit: {
-    padding: "4px 10px",
-    background: "#fff",
-    color: "#111",
-    border: "none",
-    fontFamily: "monospace",
-    fontSize: "13px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  codeCancel: {
-    padding: "4px 8px",
-    background: "none",
-    border: "1px solid #444",
-    color: "#888",
-    fontFamily: "monospace",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-  codeError: {
-    fontSize: "11px",
     color: "#e74c3c",
   },
   joinButton: {
@@ -312,17 +262,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "monospace",
     cursor: "pointer",
     fontWeight: "bold",
-    alignSelf: "flex-start",
   },
   joinButtonDisabled: {
     padding: "6px 16px",
-    background: "#333",
-    color: "#666",
+    background: "#222",
+    color: "#555",
     border: "none",
     fontSize: "13px",
     fontFamily: "monospace",
     cursor: "not-allowed",
-    alignSelf: "flex-start",
   },
   muted: {
     color: "#666",
@@ -343,10 +291,76 @@ const styles: Record<string, React.CSSProperties> = {
   footerButton: {
     background: "none",
     border: "none",
-    color: "#666",
+    color: "#555",
     cursor: "pointer",
     fontSize: "13px",
     fontFamily: "monospace",
     padding: 0,
+  },
+  promptBackdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.7)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 50,
+    fontFamily: "monospace",
+  },
+  promptBox: {
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    padding: "28px 32px",
+    width: "100%",
+    maxWidth: "340px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    color: "#fff",
+  },
+  promptTitle: {
+    margin: 0,
+    fontSize: "16px",
+    letterSpacing: "1px",
+  },
+  promptSub: {
+    margin: 0,
+    fontSize: "13px",
+    color: "#777",
+  },
+  promptInput: {
+    background: "#111",
+    border: "1px solid #333",
+    color: "#fff",
+    fontFamily: "monospace",
+    fontSize: "14px",
+    padding: "9px 12px",
+    outline: "none",
+  },
+  promptActions: {
+    display: "flex",
+    gap: "8px",
+    marginTop: "4px",
+  },
+  promptCancel: {
+    flex: 1,
+    padding: "9px",
+    background: "none",
+    border: "1px solid #333",
+    color: "#666",
+    fontFamily: "monospace",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
+  promptJoin: {
+    flex: 1,
+    padding: "9px",
+    background: "#fff",
+    border: "none",
+    color: "#111",
+    fontFamily: "monospace",
+    fontSize: "13px",
+    fontWeight: "bold",
+    cursor: "pointer",
   },
 };

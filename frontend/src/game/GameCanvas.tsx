@@ -16,6 +16,7 @@ interface Props {
   roomId?: string;
   joinCode?: string;
   onDisconnect: () => void;
+  onConnectFailed?: () => void;
   onProfile?: () => void;
 }
 
@@ -29,7 +30,7 @@ interface WinInfo {
   isLocalWinner: boolean;
 }
 
-export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onProfile }: Props) {
+export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onConnectFailed, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
   const inputHandlerRef = useRef<InputHandler | null>(null);
@@ -128,6 +129,10 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onPr
     let intentionalDisconnect = false;
     network.onDisconnect(() => {
       if (!intentionalDisconnect) onDisconnect();
+    });
+
+    network.onConnectFailed(() => {
+      if (!intentionalDisconnect) onConnectFailed?.();
     });
 
     network.connect(token, roomId, joinCode);

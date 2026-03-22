@@ -16,3 +16,4 @@ dist/
 .idea/
 *.swp
 *.swo
+backend/Logs/

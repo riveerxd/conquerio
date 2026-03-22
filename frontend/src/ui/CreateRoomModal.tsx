@@ -1,33 +1,24 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import type { CreateRoomSettings } from "../api/rooms";
 
 interface Props {
   onConfirm: (settings: CreateRoomSettings) => void;
-  onCancel: () => void;
+  onClose: () => void;
+  loading: boolean;
 }
 
-type GridSize = "small" | "medium" | "large";
-
-const GRID_SIZE_LABELS: Record<GridSize, string> = {
-  small: "small (100×100)",
-  medium: "medium (200×200)",
-  large: "large (300×300)",
-};
-
-const MAX_PLAYERS_OPTIONS = [5, 10, 20, 50];
-
-export default function CreateRoomModal({ onConfirm, onCancel }: Props) {
+export default function CreateRoomModal({ onConfirm, onClose, loading }: Props) {
   const [name, setName] = useState("");
-  const [gridSize, setGridSize] = useState<GridSize>("medium");
+  const [gridSize, setGridSize] = useState<"small" | "medium" | "large">("medium");
   const [maxPlayers, setMaxPlayers] = useState(20);
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState("");
 
-  const handleSubmit = useCallback(() => {
-    if (isPrivate && joinCode.trim() === "") {
-      setError("join code is required for private rooms");
+  const handleSubmit = () => {
+    if (isPrivate && !joinCode.trim()) {
+      setCodeError("join code required for private rooms");
       return;
     }
     onConfirm({
@@ -35,60 +26,58 @@ export default function CreateRoomModal({ onConfirm, onCancel }: Props) {
       gridSize,
       maxPlayers,
       abilitiesEnabled,
-      joinCode: isPrivate ? joinCode.trim() : undefined,
+      joinCode: isPrivate ? joinCode.trim() || undefined : undefined,
     });
-  }, [isPrivate, joinCode, name, gridSize, maxPlayers, abilitiesEnabled, onConfirm]);
+  };
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-      if (e.key === "Enter") handleSubmit();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel, handleSubmit]);
+  const gridOptions: { value: "small" | "medium" | "large"; label: string; desc: string }[] = [
+    { value: "small", label: "small", desc: "100×100" },
+    { value: "medium", label: "medium", desc: "200×200" },
+    { value: "large", label: "large", desc: "300×300" },
+  ];
 
   return (
-    <div style={styles.overlay} onClick={onCancel}>
-      <div style={styles.box} onClick={(e) => e.stopPropagation()}>
-        <h2 style={styles.title}>create room</h2>
+    <div style={styles.backdrop} onClick={onClose}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.header}>
+          <h2 style={styles.title}>create room</h2>
+          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+        </div>
 
-        {error && <div style={styles.errorBanner}>{error}</div>}
-
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>name</h3>
+        <div style={styles.field}>
+          <label style={styles.label}>room name</label>
           <input
             style={styles.input}
-            type="text"
-            placeholder="(optional)"
+            placeholder="optional"
             value={name}
-            maxLength={32}
             onChange={(e) => setName(e.target.value)}
+            maxLength={40}
           />
         </div>
 
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>grid size</h3>
-          <div style={styles.segGroup}>
-            {(["small", "medium", "large"] as GridSize[]).map((s) => (
+        <div style={styles.field}>
+          <label style={styles.label}>grid size</label>
+          <div style={styles.segmented}>
+            {gridOptions.map((opt) => (
               <button
-                key={s}
-                style={{ ...styles.segBtn, ...(gridSize === s ? styles.segBtnActive : {}) }}
-                onClick={() => setGridSize(s)}
+                key={opt.value}
+                style={gridSize === opt.value ? styles.segActiveBtn : styles.segBtn}
+                onClick={() => setGridSize(opt.value)}
               >
-                {GRID_SIZE_LABELS[s]}
+                {opt.label}
+                <span style={styles.segDesc}>{opt.desc}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>max players</h3>
-          <div style={styles.segGroup}>
-            {MAX_PLAYERS_OPTIONS.map((n) => (
+        <div style={styles.field}>
+          <label style={styles.label}>max players</label>
+          <div style={styles.segmented}>
+            {[5, 10, 20, 50].map((n) => (
               <button
                 key={n}
-                style={{ ...styles.segBtn, ...(maxPlayers === n ? styles.segBtnActive : {}) }}
+                style={maxPlayers === n ? styles.segActiveBtn : styles.segBtn}
                 onClick={() => setMaxPlayers(n)}
               >
                 {n}
@@ -97,17 +86,17 @@ export default function CreateRoomModal({ onConfirm, onCancel }: Props) {
           </div>
         </div>
 
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>abilities</h3>
-          <div style={styles.segGroup}>
+        <div style={styles.field}>
+          <label style={styles.label}>abilities</label>
+          <div style={styles.segmented}>
             <button
-              style={{ ...styles.segBtn, ...(abilitiesEnabled ? styles.segBtnActive : {}) }}
+              style={abilitiesEnabled ? styles.segActiveBtn : styles.segBtn}
               onClick={() => setAbilitiesEnabled(true)}
             >
               enabled
             </button>
             <button
-              style={{ ...styles.segBtn, ...(!abilitiesEnabled ? styles.segBtnActive : {}) }}
+              style={!abilitiesEnabled ? styles.segActiveBtn : styles.segBtn}
               onClick={() => setAbilitiesEnabled(false)}
             >
               disabled
@@ -115,148 +104,176 @@ export default function CreateRoomModal({ onConfirm, onCancel }: Props) {
           </div>
         </div>
 
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>visibility</h3>
-          <div style={styles.segGroup}>
+        <div style={styles.field}>
+          <label style={styles.label}>visibility</label>
+          <div style={styles.segmented}>
             <button
-              style={{ ...styles.segBtn, ...(!isPrivate ? styles.segBtnActive : {}) }}
-              onClick={() => { setIsPrivate(false); setError(null); }}
+              style={!isPrivate ? styles.segActiveBtn : styles.segBtn}
+              onClick={() => setIsPrivate(false)}
             >
               public
             </button>
             <button
-              style={{ ...styles.segBtn, ...(isPrivate ? styles.segBtnActive : {}) }}
+              style={isPrivate ? styles.segActiveBtn : styles.segBtn}
               onClick={() => setIsPrivate(true)}
             >
               private
             </button>
           </div>
-          {isPrivate && (
-            <input
-              style={{ ...styles.input, marginTop: "8px" }}
-              type="text"
-              placeholder="join code"
-              value={joinCode}
-              maxLength={32}
-              autoFocus
-              onChange={(e) => { setJoinCode(e.target.value); setError(null); }}
-            />
-          )}
         </div>
 
-        <div style={styles.footer}>
-          <button style={styles.btn} onClick={handleSubmit}>
-            create
-          </button>
-          <button style={{ ...styles.btn, ...styles.cancelBtn }} onClick={onCancel}>
-            cancel
-          </button>
-        </div>
+        {isPrivate && (
+          <div style={styles.field}>
+            <label style={styles.label}>join code</label>
+            <input
+              style={codeError ? { ...styles.input, borderColor: "#e55" } : styles.input}
+              placeholder="share with friends"
+              value={joinCode}
+              onChange={(e) => { setJoinCode(e.target.value); setCodeError(""); }}
+              maxLength={32}
+            />
+            {codeError && <div style={styles.fieldError}>{codeError}</div>}
+          </div>
+        )}
+
+        <button
+          style={loading ? styles.submitBtnDisabled : styles.submitBtn}
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? "creating..." : "create room"}
+        </button>
       </div>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: {
+  fieldError: {
+    color: "#e55",
+    fontSize: "12px",
+    marginTop: "4px",
+    fontFamily: "monospace",
+  },
+  backdrop: {
     position: "fixed",
     inset: 0,
+    background: "rgba(0,0,0,0.7)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "rgba(0,0,0,0.8)",
-    zIndex: 20,
-    backdropFilter: "blur(4px)",
+    zIndex: 50,
+    fontFamily: "monospace",
   },
-  box: {
+  modal: {
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    padding: "28px 32px",
+    width: "100%",
+    maxWidth: "420px",
     display: "flex",
     flexDirection: "column",
-    width: "400px",
-    maxHeight: "90vh",
-    overflowY: "auto",
-    padding: "32px",
-    background: "#111",
-    border: "2px solid #333",
+    gap: "18px",
     color: "#fff",
-    fontFamily: "monospace",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: {
-    fontSize: 24,
-    margin: "0 0 24px 0",
-    textAlign: "center",
+    fontSize: "20px",
+    margin: 0,
     letterSpacing: "2px",
+  },
+  closeBtn: {
+    background: "none",
+    border: "none",
+    color: "#666",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontFamily: "monospace",
+    padding: "0 4px",
+  },
+  field: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  label: {
+    fontSize: "11px",
+    color: "#777",
     textTransform: "uppercase",
-  },
-  errorBanner: {
-    background: "#ff4444",
-    color: "#fff",
-    padding: "8px",
-    fontSize: "12px",
-    marginBottom: "16px",
-    textAlign: "center",
-  },
-  section: {
-    marginBottom: "20px",
-  },
-  sectionTitle: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: "10px",
-    textTransform: "uppercase",
-    borderBottom: "1px solid #333",
-    paddingBottom: "4px",
+    letterSpacing: "1px",
   },
   input: {
-    width: "100%",
-    padding: "8px",
-    background: "#222",
-    border: "1px solid #444",
+    background: "#111",
+    border: "1px solid #333",
     color: "#fff",
     fontFamily: "monospace",
-    fontSize: 14,
-    boxSizing: "border-box",
+    fontSize: "14px",
+    padding: "8px 12px",
+    outline: "none",
   },
-  segGroup: {
+  segmented: {
     display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
+    gap: "6px",
   },
   segBtn: {
     flex: 1,
-    padding: "8px 4px",
-    background: "#222",
-    border: "1px solid #444",
-    color: "#888",
+    padding: "8px 0",
+    background: "#111",
+    border: "1px solid #333",
+    color: "#666",
     fontFamily: "monospace",
-    fontSize: 12,
+    fontSize: "13px",
     cursor: "pointer",
-    textTransform: "lowercase",
-  },
-  segBtnActive: {
-    background: "#fff",
-    color: "#111",
-    borderColor: "#fff",
-  },
-  footer: {
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    marginTop: "8px",
+    alignItems: "center",
+    gap: "2px",
   },
-  btn: {
-    padding: "10px 0",
+  segActiveBtn: {
+    flex: 1,
+    padding: "8px 0",
+    background: "#fff",
+    border: "1px solid #fff",
+    color: "#111",
+    fontFamily: "monospace",
+    fontSize: "13px",
+    cursor: "pointer",
+    fontWeight: "bold",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "2px",
+  },
+  segDesc: {
+    fontSize: "10px",
+    opacity: 0.6,
+    fontWeight: "normal",
+  },
+  submitBtn: {
+    width: "100%",
+    padding: "12px",
     background: "#fff",
     color: "#111",
     border: "none",
     fontFamily: "monospace",
-    fontSize: 14,
+    fontSize: "15px",
     fontWeight: "bold",
     cursor: "pointer",
-    textTransform: "uppercase",
+    marginTop: "4px",
   },
-  cancelBtn: {
-    background: "none",
-    border: "1px solid #555",
-    color: "#aaa",
+  submitBtnDisabled: {
+    width: "100%",
+    padding: "12px",
+    background: "#333",
+    color: "#666",
+    border: "none",
+    fontFamily: "monospace",
+    fontSize: "15px",
+    cursor: "not-allowed",
+    marginTop: "4px",
   },
 };
