@@ -1,4 +1,4 @@
-import type { Direction, GameState, JoinedMessage, KillFeedMessage, ServerMessage, StateMessage } from "./types";
+import type { Direction, GameState, JoinedMessage, KillFeedMessage, ServerMessage, StateMessage, WinMessage } from "./types";
 
 export class NetworkClient {
   private ws: WebSocket | null = null;
@@ -15,6 +15,7 @@ export class NetworkClient {
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
   private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
+  private onWinCb: ((msg: WinMessage) => void) | null = null;
 
   connect(token: string, roomId?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -63,6 +64,10 @@ export class NetworkClient {
     this.onDisconnectCb = cb;
   }
 
+  onWin(cb: (msg: WinMessage) => void) {
+    this.onWinCb = cb;
+  }
+
   onStateUpdate(cb: (state: import("./types").GameState) => void) {
     this.onStateUpdateCb = cb;
   }
@@ -108,6 +113,9 @@ export class NetworkClient {
         break;
       case "kill_feed":
         this.onKillFeedCb?.(msg);
+        break;
+      case "win":
+        this.onWinCb?.(msg);
         break;
     }
   }

@@ -38,7 +38,7 @@ export class Renderer {
   render(state: GameState, interpolatedPlayers: Player[]) {
     const abilities = state.players.find(x => x.id == state.myPlayerId)?.abilities;
 
-    const { width, height } = this.canvas;
+    const { width, height } = this.ctx.canvas;
     const ctx = this.ctx;
 
     ctx.fillStyle = "#111";
