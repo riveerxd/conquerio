@@ -14,6 +14,7 @@ import WinScreen from "../ui/WinScreen";
 interface Props {
   token: string;
   roomId?: string;
+  joinCode?: string;
   onDisconnect: () => void;
   onProfile?: () => void;
 }
@@ -28,7 +29,7 @@ interface WinInfo {
   isLocalWinner: boolean;
 }
 
-export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
+export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
   const inputHandlerRef = useRef<InputHandler | null>(null);
@@ -129,7 +130,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       if (!intentionalDisconnect) onDisconnect();
     });
 
-    network.connect(token, roomId);
+    network.connect(token, roomId, joinCode);
 
     return () => {
       intentionalDisconnect = true;

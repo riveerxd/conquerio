@@ -17,10 +17,12 @@ export class NetworkClient {
   private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
   private onWinCb: ((msg: WinMessage) => void) | null = null;
 
-  connect(token: string, roomId?: string) {
+  connect(token: string, roomId?: string, joinCode?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     let url = `${proto}//${location.host}/ws/game?token=${token}`;
     if (roomId) url += `&roomId=${roomId}`;
+    // NOTE: joinCode is passed as a query param — acceptable for a game
+    if (joinCode) url += `&joinCode=${encodeURIComponent(joinCode)}`;
     this.ws = new WebSocket(url);
 
     this.ws.onmessage = (e) => {
