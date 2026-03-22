@@ -122,7 +122,14 @@ public static class WebSocketEndpoints
                 }
             }
 
+            void OnPlayerWon(PlayerWonEvent evt)
+            {
+                if (evt.WinnerId != userId) return;
+                _ = PersistWinStatsAsync(scopeFactory, logger, evt);
+            }
+
             room.PlayerDied += OnPlayerDied;
+            room.PlayerWon += OnPlayerWon;
 
             // send joined message with full grid
             await MessageSerializer.SendAsync(ws, new JoinedMessage
@@ -187,6 +194,7 @@ public static class WebSocketEndpoints
             {
                 room.MarkDisconnected(userId);
                 room.PlayerDied -= OnPlayerDied;
+                room.PlayerWon -= OnPlayerWon;
 
                 deathEvents.Writer.TryComplete();
                 try
@@ -213,6 +221,54 @@ public static class WebSocketEndpoints
         .WithTags("Game")
         .WithSummary("WebSocket game connection")
         .WithDescription("Connect to the game server via WebSocket. Requires a valid JWT token in the 'token' query parameter and an optional 'roomId'.");
+    }
+
+    private static async Task PersistWinStatsAsync(
+        IServiceScopeFactory scopeFactory,
+        ILogger logger,
+        PlayerWonEvent evt)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var entry = await db.Leaderboard.FirstOrDefaultAsync(lb => lb.UserId == evt.WinnerId);
+        int newElo = (entry?.Elo ?? 1000) + 100;
+
+        try
+        {
+            db.GameRuns.Add(new GameRun
+            {
+                UserId = evt.WinnerId,
+                Kills = evt.Kills,
+                MaxTerritoryPct = evt.MaxTerritoryPct,
+                DeathCause = "won",
+                StartedAt = evt.StartedAtUtc,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to save game run for winner {WinnerId}", evt.WinnerId);
+        }
+
+        try
+        {
+            await UpsertPlayerStatsAsync(db, evt.WinnerId, evt.Kills, evt.MaxTerritoryPct, newElo, isDeath: false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upsert player stats for winner {WinnerId}", evt.WinnerId);
+        }
+
+        try
+        {
+            await UpsertLeaderboardAsync(db, evt.WinnerId, evt.MaxTerritoryPct, newElo);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upsert leaderboard for winner {WinnerId}", evt.WinnerId);
+        }
     }
 
     private static async Task PersistDeathStatsAsync(

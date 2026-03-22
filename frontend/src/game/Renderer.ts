@@ -16,12 +16,14 @@ export class Renderer {
   private boostImg: HTMLImageElement;
   private shieldImg: HTMLImageElement;
   private settings: GameSettings;
+  private isTouchDevice: boolean;
 
-  constructor(canvas: HTMLCanvasElement, camera: Camera, initialSettings: GameSettings) {
+  constructor(canvas: HTMLCanvasElement, camera: Camera, initialSettings: GameSettings, isTouchDevice = false) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.camera = camera;
     this.settings = initialSettings;
+    this.isTouchDevice = isTouchDevice;
 
     this.boostImg = new Image();
     this.boostImg.src = "/img/boost.webp";
@@ -36,7 +38,7 @@ export class Renderer {
   render(state: GameState, interpolatedPlayers: Player[]) {
     const abilities = state.players.find(x => x.id == state.myPlayerId)?.abilities;
 
-    const { width, height } = this.canvas;
+    const { width, height } = this.ctx.canvas;
     const ctx = this.ctx;
 
     ctx.fillStyle = "#111";
@@ -287,7 +289,7 @@ export class Renderer {
       ctx.font = "bold 12px monospace";
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(keybind, x + 4, y + 14);
+      if (!this.isTouchDevice) ctx.fillText(keybind, x + 4, y + 14);
 
       ctx.font = "12px monospace";
       ctx.fillStyle = isActive ? "#00ffcc" : "#aaa";
