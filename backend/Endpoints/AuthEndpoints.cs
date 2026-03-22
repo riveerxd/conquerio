@@ -16,6 +16,14 @@ public static class AuthEndpoints
             RegisterRequest request,
             UserManager<AppUser> userManager) =>
         {
+            if (request.Username.Contains("@"))
+            {
+                return Results.BadRequest(new
+                {
+                    errors = new[] { "Username cannot contain '@' and cannot be an email address." }
+                });
+            }
+
             var user = new AppUser
             {
                 UserName = request.Username,
@@ -33,7 +41,10 @@ public static class AuthEndpoints
             }
 
             return Results.Ok(new { message = "Registration successful." });
-        });
+        })
+        .WithTags("Auth")
+        .WithSummary("Register a new user")
+        .WithDescription("Creates a new user account with the specified username, email, and password.");
 
         // POST /api/auth/login
         app.MapPost("/api/auth/login", async (
@@ -47,7 +58,10 @@ public static class AuthEndpoints
 
             var token = GenerateJwtToken(user, config);
             return Results.Ok(new { token });
-        });
+        })
+        .WithTags("Auth")
+        .WithSummary("Login and get a JWT token")
+        .WithDescription("Authenticates a user and returns a JWT token for subsequent requests.");
 
         // GET /api/auth/me
         app.MapGet("/api/auth/me", (ClaimsPrincipal principal, UserManager<AppUser> userManager) =>
@@ -61,7 +75,11 @@ public static class AuthEndpoints
                 username = principal.FindFirstValue(ClaimTypes.Name),
                 email = principal.FindFirstValue(ClaimTypes.Email)
             });
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization()
+        .WithTags("Auth")
+        .WithSummary("Get current user profile")
+        .WithDescription("Returns information about the currently authenticated user based on the JWT token.");
     }
 
     private static string GenerateJwtToken(AppUser user, IConfiguration config)
@@ -70,12 +88,13 @@ public static class AuthEndpoints
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id),
             new Claim(ClaimTypes.Name, user.UserName!),
-            new Claim(ClaimTypes.Email, user.Email!)
         };
+        if (user.Email is not null)
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
 
         var token = new JwtSecurityToken(
             issuer: jwtSettings["Issuer"],
@@ -88,4 +107,3 @@ public static class AuthEndpoints
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
-

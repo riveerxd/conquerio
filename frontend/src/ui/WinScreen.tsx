@@ -1,20 +1,22 @@
 interface Props {
-  reason: string;
-  killedBy: string | null;
-  onRespawn: () => void;
+  winnerName: string;
+  isLocalWinner: boolean;
+  onPlay: () => void;
   onProfile?: () => void;
 }
 
-export default function DeathScreen({ reason, killedBy, onRespawn, onProfile }: Props) {
+export default function WinScreen({ winnerName, isLocalWinner, onPlay, onProfile }: Props) {
   return (
-      <div style={styles.overlay} role={"dialog"} aria-modal aria-labelledby="death-title">
-          <div style={styles.box}>
-              <h2 id={"death-title"} style={styles.title}>you died</h2>
-        <p style={styles.reason}>
-          {killedBy ? `killed by ${killedBy}` : reason}
+    <div style={styles.overlay} role="dialog" aria-modal aria-labelledby="win-title">
+      <div style={styles.box}>
+        <h2 id="win-title" style={styles.title}>
+          {isLocalWinner ? "you won!" : `${winnerName} won`}
+        </h2>
+        <p style={styles.sub}>
+          {isLocalWinner ? "you filled the entire map" : "they filled the entire map"}
         </p>
-        <button onClick={onRespawn} style={styles.button}>
-          respawn
+        <button onClick={onPlay} style={styles.button}>
+          play again
         </button>
         {onProfile && (
           <button onClick={onProfile} style={styles.statsLink}>
@@ -48,7 +50,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "36px",
     marginBottom: "12px",
   },
-  reason: {
+  sub: {
     color: "#999",
     marginBottom: "24px",
   },

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Channels;
 using conquerio.Data;
 using conquerio.Game;
+using conquerio.Game.Abilities;
 using conquerio.Game.Messages;
 using conquerio.Models;
 using Microsoft.AspNetCore.Identity;
@@ -62,6 +63,7 @@ public static class WebSocketEndpoints
 
             // figure out which room to join
             var roomId = context.Request.Query["roomId"].FirstOrDefault();
+            var joinCode = context.Request.Query["joinCode"].FirstOrDefault();
             GameRoom room;
 
             if (!string.IsNullOrEmpty(roomId))
@@ -75,6 +77,11 @@ public static class WebSocketEndpoints
                 if (target.IsFull)
                 {
                     context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    return;
+                }
+                if (target.JoinCode != null && target.JoinCode != joinCode)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     return;
                 }
                 room = target;
@@ -115,9 +122,16 @@ public static class WebSocketEndpoints
                 }
             }
 
-            room.PlayerDied += OnPlayerDied;
+            void OnPlayerWon(PlayerWonEvent evt)
+            {
+                if (evt.WinnerId != userId) return;
+                _ = PersistWinStatsAsync(scopeFactory, logger, evt);
+            }
 
-            // send joined message with compressed grid
+            room.PlayerDied += OnPlayerDied;
+            room.PlayerWon += OnPlayerWon;
+
+            // send joined message with full grid
             await MessageSerializer.SendAsync(ws, new JoinedMessage
             {
                 PlayerId = userId,
@@ -180,6 +194,7 @@ public static class WebSocketEndpoints
             {
                 room.MarkDisconnected(userId);
                 room.PlayerDied -= OnPlayerDied;
+                room.PlayerWon -= OnPlayerWon;
 
                 deathEvents.Writer.TryComplete();
                 try
@@ -202,7 +217,58 @@ public static class WebSocketEndpoints
                 if (room.Players.Values.All(ps => ps.IsDisconnected || !ps.IsAlive))
                     roomManager.MarkEmpty(room.RoomId);
             }
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("WebSocket game connection")
+        .WithDescription("Connect to the game server via WebSocket. Requires a valid JWT token in the 'token' query parameter and an optional 'roomId'.");
+    }
+
+    private static async Task PersistWinStatsAsync(
+        IServiceScopeFactory scopeFactory,
+        ILogger logger,
+        PlayerWonEvent evt)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var entry = await db.Leaderboard.FirstOrDefaultAsync(lb => lb.UserId == evt.WinnerId);
+        int newElo = (entry?.Elo ?? 1000) + 100;
+
+        try
+        {
+            db.GameRuns.Add(new GameRun
+            {
+                UserId = evt.WinnerId,
+                Kills = evt.Kills,
+                MaxTerritoryPct = evt.MaxTerritoryPct,
+                DeathCause = "won",
+                StartedAt = evt.StartedAtUtc,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to save game run for winner {WinnerId}", evt.WinnerId);
+        }
+
+        try
+        {
+            await UpsertPlayerStatsAsync(db, evt.WinnerId, evt.Kills, evt.MaxTerritoryPct, newElo, isDeath: false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upsert player stats for winner {WinnerId}", evt.WinnerId);
+        }
+
+        try
+        {
+            await UpsertLeaderboardAsync(db, evt.WinnerId, evt.MaxTerritoryPct, newElo);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to upsert leaderboard for winner {WinnerId}", evt.WinnerId);
+        }
     }
 
     private static async Task PersistDeathStatsAsync(

@@ -5,6 +5,17 @@ export interface RoomInfo {
   name: string;
   playerCount: number;
   maxPlayers: number;
+  gridSize: "small" | "medium" | "large";
+  abilitiesEnabled: boolean;
+  isPrivate: boolean;
+}
+
+export interface CreateRoomSettings {
+  name?: string;
+  gridSize: "small" | "medium" | "large";
+  maxPlayers: number;
+  abilitiesEnabled: boolean;
+  joinCode?: string;
 }
 
 export async function getRooms(token: string): Promise<RoomInfo[]> {
@@ -15,14 +26,20 @@ export async function getRooms(token: string): Promise<RoomInfo[]> {
   return res.json();
 }
 
-export async function createRoom(token: string, name?: string): Promise<RoomInfo> {
+export async function createRoom(token: string, settings: CreateRoomSettings): Promise<RoomInfo> {
   const res = await fetch(API, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(name ? { name } : {}),
+    body: JSON.stringify({
+      name: settings.name,
+      gridSize: settings.gridSize,
+      maxPlayers: settings.maxPlayers,
+      abilitiesEnabled: settings.abilitiesEnabled,
+      joinCode: settings.joinCode,
+    }),
   });
   if (!res.ok) throw new Error(`failed to create room: ${res.status}`);
   return res.json();

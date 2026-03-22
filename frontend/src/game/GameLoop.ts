@@ -2,6 +2,7 @@ import type { NetworkClient } from "./NetworkClient";
 import { Camera } from "./Camera";
 import { Renderer } from "./Renderer";
 import { StateInterpolator } from "./StateInterpolator";
+import type { GameSettings } from "../ui/SettingsContext";
 
 export class GameLoop {
   private renderer: Renderer;
@@ -13,10 +14,14 @@ export class GameLoop {
   private cameraInitialized = false;
   private spectateTargetId: string | null = null;
 
-  constructor(canvas: HTMLCanvasElement, private network: NetworkClient) {
+  constructor(canvas: HTMLCanvasElement, private network: NetworkClient, settings: GameSettings, isTouchDevice = false) {
     this.camera = new Camera();
-    this.renderer = new Renderer(canvas, this.camera);
+    this.renderer = new Renderer(canvas, this.camera, settings, isTouchDevice);
     this.interpolator = new StateInterpolator(network);
+  }
+
+  setSettings(settings: GameSettings) {
+    this.renderer.setSettings(settings);
   }
 
   start() {

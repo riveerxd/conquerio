@@ -93,3 +93,11 @@ public class ErrorMessage
 
     public required string Msg { get; set; }
 }
+
+public class WinMessage
+{
+    [JsonPropertyName("type")]
+    public string Type => "win";
+
+    public required string WinnerName { get; set; }
+}

@@ -58,6 +58,7 @@ export default function LoginScreen({ onLogin }: Props) {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>conquerio</h1>
+      <h2 style={styles.subtitle}>{isRegister ? "create account" : "log in"}</h2>
       <form onSubmit={handleSubmit} style={styles.form}>
         <input
           type="text"
@@ -91,7 +92,11 @@ export default function LoginScreen({ onLogin }: Props) {
           </div>
         )}
         {error && <div style={styles.error}>{error}</div>}
-        <button type="submit" style={styles.button} disabled={loading}>
+        <button
+          type="submit"
+          style={styles.button}
+          disabled={loading}
+        >
           {loading ? "..." : isRegister ? "register" : "play"}
         </button>
         <button
@@ -119,8 +124,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontSize: "48px",
-    marginBottom: "40px",
+    marginBottom: "8px",
     letterSpacing: "4px",
+  },
+  subtitle: {
+    fontSize: "16px",
+    marginBottom: "32px",
+    color: "#aaa",
+    letterSpacing: "2px",
+    fontWeight: "normal",
   },
   form: {
     display: "flex",

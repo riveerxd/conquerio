@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "nipplejs": "^0.10.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

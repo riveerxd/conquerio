@@ -46,7 +46,10 @@ public static class GameEndpoints
                 e.Elo,
                 e.BestTerritoryPct
             }));
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("Get leaderboard entries")
+        .WithDescription("Retrieves the top players by Elo rating, limited by the maxPlayers parameter.");
 
         // GET /api/stats/{id}
         app.MapGet("/api/stats/{id}", async (string id, AppDbContext db) =>
@@ -69,7 +72,10 @@ public static class GameEndpoints
             return stats is null
                 ? Results.NotFound($"No stats found for player '{id}'.")
                 : Results.Ok(stats);
-        });
+        })
+        .WithTags("Game")
+        .WithSummary("Get player statistics")
+        .WithDescription("Returns game statistics for a specific player by their user ID.");
 
         app.MapGet("/api/rooms", (GameRoomManager roomManager) =>
         {
@@ -80,27 +86,59 @@ public static class GameEndpoints
                     id = r.RoomId,
                     name = r.Name,
                     playerCount = r.Players.Count,
-                    maxPlayers = r.MaxPlayers
+                    maxPlayers = r.MaxPlayers,
+                    gridSize = GridSizeLabel(r.GridWidth),
+                    abilitiesEnabled = r.AbilitiesEnabled,
+                    isPrivate = r.JoinCode != null
                 });
 
             return Results.Ok(rooms);
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization()
+        .WithTags("Game")
+        .WithSummary("List active game rooms")
+        .WithDescription("Lists all current game rooms that have players.");
 
         app.MapPost("/api/rooms", (GameRoomManager roomManager, CreateRoomRequest? request) =>
         {
-            var room = roomManager.CreateRoom(request?.Name);
+            var (gridWidth, gridHeight) = ParseGridSize(request?.GridSize);
+            var maxPlayers = Math.Clamp(request?.MaxPlayers ?? 20, 2, 100);
+            var settings = new RoomSettings
+            {
+                GridWidth = gridWidth,
+                GridHeight = gridHeight,
+                MaxPlayers = maxPlayers,
+                AbilitiesEnabled = request?.AbilitiesEnabled ?? true,
+                JoinCode = string.IsNullOrWhiteSpace(request?.JoinCode) ? null : request.JoinCode
+            };
+            var room = roomManager.CreateRoom(request?.Name, settings);
 
             return Results.Ok(new
             {
                 id = room.RoomId,
                 name = room.Name,
                 playerCount = 0,
-                maxPlayers = room.MaxPlayers
+                maxPlayers = room.MaxPlayers,
+                gridSize = GridSizeLabel(room.GridWidth),
+                abilitiesEnabled = room.AbilitiesEnabled,
+                isPrivate = room.JoinCode != null
             });
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization()
+        .WithTags("Game")
+        .WithSummary("Create a new game room")
+        .WithDescription("Manually creates a new game room where players can join.");
     }
+
+    private static (int Width, int Height) ParseGridSize(string? gridSize) => gridSize?.ToLowerInvariant() switch
+    {
+        "small" => (100, 100),
+        "large" => (300, 300),
+        _ => (200, 200)
+    };
+
+    private static string GridSizeLabel(int width) => width <= 100 ? "small" : width >= 300 ? "large" : "medium";
 }
 
-record CreateRoomRequest(string? Name);
-
+record CreateRoomRequest(string? Name, string? GridSize, int? MaxPlayers, bool? AbilitiesEnabled, string? JoinCode);
 

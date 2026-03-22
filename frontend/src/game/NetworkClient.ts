@@ -1,4 +1,4 @@
-import type { Direction, GameState, JoinedMessage, KillFeedMessage, ServerMessage, StateMessage } from "./types";
+import type { Direction, GameState, JoinedMessage, KillFeedMessage, ServerMessage, StateMessage, WinMessage } from "./types";
 
 export class NetworkClient {
   private ws: WebSocket | null = null;
@@ -14,12 +14,18 @@ export class NetworkClient {
   private onKillFeedCb: ((msg: KillFeedMessage) => void) | null = null;
   private onJoinedCb: (() => void) | null = null;
   private onDisconnectCb: (() => void) | null = null;
+  private onConnectFailedCb: (() => void) | null = null;
   private onStateUpdateCb: ((state: import("./types").GameState) => void) | null = null;
+  private onWinCb: ((msg: WinMessage) => void) | null = null;
+  private hasJoined = false;
 
-  connect(token: string, roomId?: string) {
+  connect(token: string, roomId?: string, joinCode?: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     let url = `${proto}//${location.host}/ws/game?token=${token}`;
     if (roomId) url += `&roomId=${roomId}`;
+    // NOTE: joinCode is passed as a query param — acceptable for a game
+    if (joinCode) url += `&joinCode=${encodeURIComponent(joinCode)}`;
+    this.hasJoined = false;
     this.ws = new WebSocket(url);
 
     this.ws.onmessage = (e) => {
@@ -29,8 +35,13 @@ export class NetworkClient {
     };
 
     this.ws.onclose = () => {
+      const joined = this.hasJoined;
       this.ws = null;
-      this.onDisconnectCb?.();
+      if (!joined) {
+        this.onConnectFailedCb?.();
+      } else {
+        this.onDisconnectCb?.();
+      }
     };
   }
 
@@ -61,6 +72,14 @@ export class NetworkClient {
 
   onDisconnect(cb: () => void) {
     this.onDisconnectCb = cb;
+  }
+
+  onConnectFailed(cb: () => void) {
+    this.onConnectFailedCb = cb;
+  }
+
+  onWin(cb: (msg: WinMessage) => void) {
+    this.onWinCb = cb;
   }
 
   onStateUpdate(cb: (state: import("./types").GameState) => void) {
@@ -109,10 +128,14 @@ export class NetworkClient {
       case "kill_feed":
         this.onKillFeedCb?.(msg);
         break;
+      case "win":
+        this.onWinCb?.(msg);
+        break;
     }
   }
 
   private handleJoined(msg: JoinedMessage) {
+    this.hasJoined = true;
     this.myPlayerId = msg.playerId;
     this.gridWidth = msg.gridWidth;
     this.gridHeight = msg.gridHeight;
