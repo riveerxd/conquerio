@@ -9,6 +9,7 @@ import PauseMenu from "../ui/PauseMenu";
 import SettingsMenu from "../ui/SettingsMenu";
 import { useSettings } from "../ui/SettingsContext";
 import TouchControls from "../ui/TouchControls";
+import WinScreen from "../ui/WinScreen";
 
 interface Props {
   token: string;
@@ -22,12 +23,18 @@ interface SpectateInfo {
   killedBy: string | null;
 }
 
+interface WinInfo {
+  winnerName: string;
+  isLocalWinner: boolean;
+}
+
 export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const { settings } = useSettings();
   const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
+  const [win, setWin] = useState<WinInfo | null>(null);
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -57,6 +64,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
   const handleRespawn = useCallback(() => {
     setSpectate(null);
     setSpectatedPlayerId(null);
+    setWin(null);
     setSessionKey((k) => k + 1);
   }, []);
 
@@ -108,6 +116,14 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       }
     });
 
+    network.onWin((msg) => {
+      const state = network.getState();
+      const isLocalWinner = state?.players.find(
+        (p) => p.id === state.myPlayerId
+      )?.username === msg.winnerName;
+      setWin({ winnerName: msg.winnerName, isLocalWinner });
+    });
+
     let intentionalDisconnect = false;
     network.onDisconnect(() => {
       if (!intentionalDisconnect) onDisconnect();
@@ -155,7 +171,15 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
       {showSettings && (
         <SettingsMenu onBack={() => setShowSettings(false)} />
       )}
-      {spectate && networkClient && (
+      {win && (
+        <WinScreen
+          winnerName={win.winnerName}
+          isLocalWinner={win.isLocalWinner}
+          onPlay={handleRespawn}
+          onProfile={onProfile}
+        />
+      )}
+      {spectate && !win && networkClient && (
         <SpectateOverlay
           networkClient={networkClient}
           killedBy={spectate.killedBy}
@@ -166,6 +190,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
           onProfile={onProfile}
         />
       )}
+
     </div>
   );
 }
