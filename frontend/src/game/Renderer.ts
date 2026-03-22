@@ -7,21 +7,28 @@ import {
   getTrailStrokeColor,
 } from "./colors";
 import type { Player, GameState, AbilityInfo } from "./types";
+import type { GameSettings } from "../ui/SettingsContext";
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private camera: Camera;
   private boostImg: HTMLImageElement;
   private shieldImg: HTMLImageElement;
+  private settings: GameSettings;
 
-  constructor(private canvas: HTMLCanvasElement, camera: Camera) {
+  constructor(canvas: HTMLCanvasElement, camera: Camera, initialSettings: GameSettings) {
     this.ctx = canvas.getContext("2d")!;
     this.camera = camera;
+    this.settings = initialSettings;
 
     this.boostImg = new Image();
     this.boostImg.src = "/img/boost.png";
     this.shieldImg = new Image();
     this.shieldImg.src = "/img/shield.png";
+  }
+
+  setSettings(settings: GameSettings) {
+    this.settings = settings;
   }
 
   render(state: GameState, interpolatedPlayers: Player[]) {
@@ -34,7 +41,9 @@ export class Renderer {
     ctx.fillRect(0, 0, width, height);
 
     this.drawGrid(state, width, height);
-    this.drawGridLines(state, width, height);
+    if (this.settings.showGrid) {
+      this.drawGridLines(state, width, height);
+    }
     this.drawTrails(interpolatedPlayers, width, height);
     this.drawPlayers(interpolatedPlayers, state.myPlayerId, width, height);
     this.drawMinimap(state, interpolatedPlayers, width, height);
@@ -141,12 +150,17 @@ export class Renderer {
     }
   }
 
-  private drawMinimap(state: GameState, players: Player[], canvasW: number, _canvasH: number) {
+  private drawMinimap(state: GameState, players: Player[], canvasW: number, canvasH: number) {
     const ctx = this.ctx;
-    const size = 150;
+    const size = this.settings.minimapSize;
     const padding = 12;
-    const mx = canvasW - size - padding;
-    const my = padding;
+    
+    let mx = padding;
+    let my = padding;
+
+    const pos = this.settings.minimapPosition;
+    if (pos.includes("right")) mx = canvasW - size - padding;
+    if (pos.includes("bottom")) my = canvasH - size - padding;
 
     // bg
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
