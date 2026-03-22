@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import LoginScreen from "./ui/LoginScreen";
-import RoomBrowser from "./ui/RoomBrowser";
-import GameCanvas from "./game/GameCanvas";
-import ProfilePage from "./ui/ProfilePage";
 import { getUserIdFromToken } from "./api/stats";
 import { SettingsProvider } from "./ui/SettingsContext";
+
+const RoomBrowser = lazy(() => import("./ui/RoomBrowser"));
+const GameCanvas = lazy(() => import("./game/GameCanvas"));
+const ProfilePage = lazy(() => import("./ui/ProfilePage"));
 
 type Screen = "login" | "rooms" | "game" | "profile";
 
@@ -78,7 +79,9 @@ export default function App() {
 
   return (
     <SettingsProvider>
-      {content()}
+      <Suspense fallback={null}>
+        {content()}
+      </Suspense>
     </SettingsProvider>
   );
 }
