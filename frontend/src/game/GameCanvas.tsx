@@ -104,7 +104,12 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <canvas ref={canvasRef} style={{ display: "block" }} />
+      <canvas
+        ref={canvasRef}
+        style={{ display: "block" }}
+        role="img"
+        aria-label="Conquerio game arena where players compete for territory"
+      />
       {networkClient && (
         <Leaderboard networkClient={networkClient} />
       )}

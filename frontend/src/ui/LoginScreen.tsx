@@ -91,7 +91,11 @@ export default function LoginScreen({ onLogin }: Props) {
           </div>
         )}
         {error && <div style={styles.error}>{error}</div>}
-        <button type="submit" style={styles.button} disabled={loading}>
+        <button
+          type="submit"
+          style={styles.button}
+          disabled={loading}
+        >
           {loading ? "..." : isRegister ? "register" : "play"}
         </button>
         <button
