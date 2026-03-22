@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import type { NetworkClient } from "../game/NetworkClient";
+import {useCallback, useEffect, useState} from "react";
+import type {NetworkClient} from "../game/NetworkClient";
 
 interface Props {
   killedBy: string | null;
@@ -59,19 +59,23 @@ export default function SpectateOverlay({
   }, [cyclePlayer]);
 
   return (
-    <div style={styles.overlay}>
+      <div style={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="spectate-title">
       <div style={styles.box}>
-        <h2 style={styles.title}>you died</h2>
+          <h2 id="spectate-title" style={styles.title}>you died</h2>
         <p style={styles.reason}>
           {killedBy ? `killed by ${killedBy}` : reason}
         </p>
 
         <div style={styles.spectateRow}>
-          <button onClick={() => cyclePlayer(-1)} style={styles.arrowBtn}>{"<"}</button>
-          <span style={styles.spectatingLabel}>
+            <button onClick={() => cyclePlayer(-1)} style={styles.arrowBtn} aria-label="Previous player">
+                {"<"}
+            </button>
+            <span style={styles.spectatingLabel} aria-live="polite">
             spectating: {spectatedName || "..."}
           </span>
-          <button onClick={() => cyclePlayer(1)} style={styles.arrowBtn}>{">"}</button>
+            <button onClick={() => cyclePlayer(1)} style={styles.arrowBtn} aria-label="Next player">
+                {">"}
+            </button>
         </div>
 
         <button onClick={onRespawn} style={styles.button}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getRooms, createRoom, type RoomInfo, type CreateRoomSettings } from "../api/rooms";
 import CreateRoomModal from "./CreateRoomModal";
+import SettingsMenu from "./SettingsMenu";
 
 interface Props {
   token: string;
@@ -18,6 +19,7 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
   const [joinPrompt, setJoinPrompt] = useState<{ room: RoomInfo; code: string } | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const fetchRooms = async () => {
     try {
@@ -70,15 +72,17 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
         </button>
       </div>
 
-      <div style={styles.roomList}>
+        <h2 style={styles.sectionHeading}>active rooms</h2>
+        <div style={styles.roomList} role="list" aria-label="Available rooms">
         {loading && <div style={styles.muted}>loading rooms...</div>}
         {!loading && rooms.length === 0 && (
           <div style={styles.muted}>no active rooms - create one or quick play</div>
         )}
         {rooms.map((room) => {
           const full = room.playerCount >= room.maxPlayers;
+            const ariaLabel = `${room.name}, ${room.playerCount} of ${room.maxPlayers} players${full ? ", full" : ""}`;
           return (
-            <div key={room.id} style={styles.roomCard}>
+              <div key={room.id} style={styles.roomCard} role="listitem" aria-label={ariaLabel}>
               <div style={styles.roomInfo}>
                 <div style={styles.roomNameRow}>
                   <span style={styles.roomName}>{room.isPrivate ? "🔒 " : ""}{room.name}</span>
@@ -95,6 +99,7 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
                 style={full ? styles.joinButtonDisabled : styles.joinButton}
                 disabled={full}
                 onClick={() => handleJoinClick(room)}
+                aria-label={full ? `Room ${room.name} is full` : `Join room ${room.name}`}
               >
                 {full ? "full" : room.isPrivate ? "enter code" : "join"}
               </button>
@@ -106,9 +111,14 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
       {(error || joinError) && <div style={styles.error}>{error || joinError}</div>}
 
       <div style={styles.footer}>
+        <button style={styles.footerButton} onClick={() => setShowSettings(true)}>settings</button>
         <button style={styles.footerButton} onClick={onProfile}>my profile</button>
         <button style={styles.footerButton} onClick={onLogout}>logout</button>
       </div>
+
+      {showSettings && (
+        <SettingsMenu onBack={() => setShowSettings(false)} />
+      )}
 
       {showModal && (
         <CreateRoomModal
@@ -186,6 +196,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "16px",
     fontFamily: "monospace",
     cursor: "pointer",
+  },
+  sectionHeading: {
+    fontSize: "12px",
+    color: "#666",
+    letterSpacing: "2px",
+    textTransform: "uppercase",
+    marginBottom: "8px",
+    alignSelf: "flex-start",
+    fontWeight: "normal",
   },
   roomList: {
     display: "flex",

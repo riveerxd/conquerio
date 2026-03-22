@@ -1,11 +1,14 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { NetworkClient } from "./NetworkClient";
-import { GameLoop } from "./GameLoop";
-import { InputHandler } from "./InputHandler";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {NetworkClient} from "./NetworkClient";
+import {GameLoop} from "./GameLoop";
+import {InputHandler} from "./InputHandler";
 import Leaderboard from "../ui/Leaderboard";
 import KillFeed from "../ui/KillFeed";
 import SpectateOverlay from "../ui/SpectateOverlay";
 import PauseMenu from "../ui/PauseMenu";
+import SettingsMenu from "../ui/SettingsMenu";
+import { useSettings } from "../ui/SettingsContext";
+import TouchControls from "../ui/TouchControls";
 
 interface Props {
   token: string;
@@ -24,10 +27,28 @@ interface SpectateInfo {
 export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onConnectFailed, onProfile }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<GameLoop | null>(null);
+  const inputHandlerRef = useRef<InputHandler | null>(null);
+  const { settings } = useSettings();
   const [spectate, setSpectate] = useState<SpectateInfo | null>(null);
   const [spectatedPlayerId, setSpectatedPlayerId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  // keep game loop and input in sync when settings change
+  useEffect(() => {
+    if (gameLoopRef.current) {
+      gameLoopRef.current.setSettings(settings);
+    }
+    if (inputHandlerRef.current) {
+      inputHandlerRef.current.setSettings(settings);
+    }
+  }, [settings]);
 
   // keep game loop in sync when spectated player changes
   useEffect(() => {
@@ -47,11 +68,17 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPaused((prev) => !prev);
+      if (e.key === "Escape") {
+        if (showSettings) {
+          setShowSettings(false);
+        } else {
+          setPaused((prev) => !prev);
+        }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [showSettings]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -65,9 +92,10 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
     window.addEventListener("resize", resize);
 
     const network = new NetworkClient();
-    const gameLoop = new GameLoop(canvas, network);
+    const gameLoop = new GameLoop(canvas, network, settings);
     gameLoopRef.current = gameLoop;
-    const input = new InputHandler(network);
+    const input = new InputHandler(network, settings);
+    inputHandlerRef.current = input;
 
     network.onJoined(() => {
       console.log("joined game");
@@ -103,6 +131,7 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
       input.destroy();
       gameLoop.stop();
       gameLoopRef.current = null;
+      inputHandlerRef.current = null;
       network.disconnect();
       setNetworkClient(null);
     };
@@ -110,19 +139,31 @@ export default function GameCanvas({ token, roomId, joinCode, onDisconnect, onCo
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <canvas ref={canvasRef} style={{ display: "block" }} />
+      <canvas
+        ref={canvasRef}
+        style={{ display: "block" }}
+        role="img"
+        aria-label="Conquerio game arena where players compete for territory"
+      />
       {networkClient && (
         <Leaderboard networkClient={networkClient} />
       )}
       {networkClient && (
         <KillFeed networkClient={networkClient} />
       )}
-      {paused && !spectate && (
+      {networkClient && isTouchDevice && !spectate && !paused && (
+        <TouchControls networkClient={networkClient} />
+      )}
+      {paused && !spectate && !showSettings && (
         <PauseMenu
           onResume={() => setPaused(false)}
           onProfile={onProfile}
+          onSettings={() => setShowSettings(true)}
           onLeave={() => { setPaused(false); onDisconnect(); }}
         />
+      )}
+      {showSettings && (
+        <SettingsMenu onBack={() => setShowSettings(false)} />
       )}
       {spectate && networkClient && (
         <SpectateOverlay
