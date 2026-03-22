@@ -23,6 +23,11 @@ export class InputHandler {
         this.network.sendAbility("BOOST");
         return;
       }
+      if (e.key === "Shift") {
+        e.preventDefault();
+        this.network.sendAbility("SHIELD");
+        return;
+      }
       const dir = KEY_MAP[e.key];
       if (dir && dir !== this.currentDir) {
         this.currentDir = dir;
