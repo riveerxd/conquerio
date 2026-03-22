@@ -109,6 +109,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseResponseCompression();
 app.UseWebSockets();
 
 // Content-Security-Policy (CSP)
@@ -129,7 +130,6 @@ app.Use(async (context, next) =>
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseResponseCompression();
 
 // Map endpoints
 app.MapAuthEndpoints();
