@@ -130,12 +130,12 @@ export default function RoomBrowser({ token, joinError, onJoinRoom, onQuickPlay,
               value={joinPrompt.code}
               onChange={(e) => setJoinPrompt({ ...joinPrompt, code: e.target.value })}
               onKeyDown={(e) => {
-                if (e.key === "Enter") onJoinRoom(joinPrompt.room.id, joinPrompt.code);
+                if (e.key === "Enter") { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code); }
               }}
             />
             <div style={styles.promptActions}>
               <button style={styles.promptCancel} onClick={() => setJoinPrompt(null)}>cancel</button>
-              <button style={styles.promptJoin} onClick={() => onJoinRoom(joinPrompt.room.id, joinPrompt.code)}>
+              <button style={styles.promptJoin} onClick={() => { setJoinPrompt(null); onJoinRoom(joinPrompt.room.id, joinPrompt.code); }}>
                 join
               </button>
             </div>

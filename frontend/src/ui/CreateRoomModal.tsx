@@ -14,8 +14,13 @@ export default function CreateRoomModal({ onConfirm, onClose, loading }: Props) 
   const [abilitiesEnabled, setAbilitiesEnabled] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
   const [joinCode, setJoinCode] = useState("");
+  const [codeError, setCodeError] = useState("");
 
   const handleSubmit = () => {
+    if (isPrivate && !joinCode.trim()) {
+      setCodeError("join code required for private rooms");
+      return;
+    }
     onConfirm({
       name: name.trim() || undefined,
       gridSize,
@@ -121,12 +126,13 @@ export default function CreateRoomModal({ onConfirm, onClose, loading }: Props) 
           <div style={styles.field}>
             <label style={styles.label}>join code</label>
             <input
-              style={styles.input}
+              style={codeError ? { ...styles.input, borderColor: "#e55" } : styles.input}
               placeholder="share with friends"
               value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
+              onChange={(e) => { setJoinCode(e.target.value); setCodeError(""); }}
               maxLength={32}
             />
+            {codeError && <div style={styles.fieldError}>{codeError}</div>}
           </div>
         )}
 
@@ -143,6 +149,12 @@ export default function CreateRoomModal({ onConfirm, onClose, loading }: Props) 
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  fieldError: {
+    color: "#e55",
+    fontSize: "12px",
+    marginTop: "4px",
+    fontFamily: "monospace",
+  },
   backdrop: {
     position: "fixed",
     inset: 0,
