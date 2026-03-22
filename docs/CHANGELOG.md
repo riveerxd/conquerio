@@ -2,7 +2,46 @@
 
 ---
 
-## [2026-03-13]
+## [2026-03-22]
+
+### Se8o — Mobile playability fix (branch: feature/fix-mobile-playability)
+
+**Findings from testing on iOS (iPhone, Safari) and Android (Chrome):**
+
+- **[iOS/Android] Joystick blocked entire game view** — the virtual joystick zone was
+  positioned at `left: 50%, bottom: 50%`, placing it squarely in the center of the screen,
+  completely obscuring the player's view. Fixed: moved to bottom-left (`left: 20px`).
+
+- **[iOS/Android] No way to pause or access the menu** — on desktop, `Escape` opens the pause
+  menu; there is no keyboard on touch devices so this was inaccessible. Fixed: added a
+  hamburger (≡) pause button to the touch overlay, anchored at top-center between the
+  leaderboard and minimap.
+
+- **[iOS/Android] Keyboard shortcut labels ("Space", "Shift") shown in the ability HUD** —
+  the canvas-rendered ability boxes display the keyboard binding ("Space", "Shift") as text
+  in the top-left of each icon. Meaningless on mobile and visually confusing. Fixed: the
+  Renderer now skips drawing the keybind text when `isTouchDevice` is true.
+
+- **[iOS] Pinch-to-zoom and double-tap zoom** — Safari allows the user to zoom the page,
+  breaking the canvas layout. Fixed: updated viewport meta tag to
+  `maximum-scale=1.0, user-scalable=no` and added `viewport-fit=cover` for devices with
+  notch/home indicator.
+
+- **[iOS/Android] Scroll/pull-to-refresh on canvas touch** — dragging the game on mobile
+  could trigger browser scroll or pull-to-refresh. Fixed: added `touchAction: "none"` to
+  the `<canvas>` element and all interactive touch overlay elements.
+
+- **[iOS] Home indicator overlap** — bottom controls (joystick, ability buttons) were
+  rendered over the iOS home indicator at the very bottom edge. Fixed: used
+  `env(safe-area-inset-bottom, 0px)` in CSS calc for bottom positioning.
+
+- **[iOS/Android] Ability buttons had no icons** — the touch overlay buttons showed plain
+  "BOOST"/"SHIELD" text instead of ability artwork. Fixed: buttons now render the ability
+  `.webp` icons for visual clarity.
+
+---
+
+
 
 ### lukas.hrehor
 - show killer username instead of UUID on death screen

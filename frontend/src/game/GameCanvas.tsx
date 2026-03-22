@@ -32,11 +32,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
   const [paused, setPaused] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [networkClient, setNetworkClient] = useState<NetworkClient | null>(null);
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-
-  useEffect(() => {
-    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  }, []);
+  const [isTouchDevice] = useState(() => "ontouchstart" in window || navigator.maxTouchPoints > 0);
 
   // keep game loop and input in sync when settings change
   useEffect(() => {
@@ -90,7 +86,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
     window.addEventListener("resize", resize);
 
     const network = new NetworkClient();
-    const gameLoop = new GameLoop(canvas, network, settings);
+    const gameLoop = new GameLoop(canvas, network, settings, isTouchDevice);
     gameLoopRef.current = gameLoop;
     const input = new InputHandler(network, settings);
     inputHandlerRef.current = input;
@@ -135,7 +131,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       <canvas
         ref={canvasRef}
-        style={{ display: "block" }}
+        style={{ display: "block", touchAction: "none" }}
         role="img"
         aria-label="Conquerio game arena where players compete for territory"
       />
@@ -146,7 +142,7 @@ export default function GameCanvas({ token, roomId, onDisconnect, onProfile }: P
         <KillFeed networkClient={networkClient} />
       )}
       {networkClient && isTouchDevice && !spectate && !paused && (
-        <TouchControls networkClient={networkClient} />
+        <TouchControls networkClient={networkClient} onPause={() => setPaused(true)} />
       )}
       {paused && !spectate && !showSettings && (
         <PauseMenu
