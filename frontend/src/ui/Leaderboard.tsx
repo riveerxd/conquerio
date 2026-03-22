@@ -122,8 +122,8 @@ export default function Leaderboard({ networkClient }: Props) {
     if (rows.length === 0) return null;
 
     return (
-        <div style={styles.container} role={"region"} aria-label={"Leaderboard"}>
-            <div style={styles.header}>Leaderboard</div>
+        <div style={styles.container} role={"region"} aria-labelledby={"leaderboard-heading"}>
+            <h2 id={"leaderboard-heading"} style={styles.header}>leaderboard</h2>
             {rows.slice(0, DISPLAY_LIMIT).map((row) => {
                 const isMe = row.colorId === myColorId;
                 return (

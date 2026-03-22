@@ -59,6 +59,7 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
         </button>
       </div>
 
+        <h2 style={styles.sectionHeading}>active rooms</h2>
         <div style={styles.roomList} role="list" aria-label="Available rooms">
         {loading && <div style={styles.muted}>loading rooms...</div>}
         {!loading && rooms.length === 0 && (
@@ -149,6 +150,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "16px",
     fontFamily: "monospace",
     cursor: "pointer",
+  },
+  sectionHeading: {
+    fontSize: "12px",
+    color: "#666",
+    letterSpacing: "2px",
+    textTransform: "uppercase",
+    marginBottom: "8px",
+    alignSelf: "flex-start",
+    fontWeight: "normal",
   },
   roomList: {
     display: "flex",
