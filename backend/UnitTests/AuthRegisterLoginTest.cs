@@ -27,6 +27,25 @@ public class AuthRegisterLoginTest : WsTestBase
     }
 
     [Fact]
+    public async Task Register_EmailAsUsername_ReturnsBadRequest()
+    {
+        var uid = UniqueId();
+        var client = Factory.Server.CreateClient();
+
+        var res = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            username = $"reg_{uid}@test.com",
+            email = $"reg_{uid}@test.com",
+            password = "Pass123!"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        var body = await res.Content.ReadFromJsonAsync<JsonElement>();
+        var errors = body.GetProperty("errors").EnumerateArray();
+        Assert.Contains(errors, e => e.GetString()!.Contains("@") || e.GetString()!.Contains("InvalidUserName"));
+    }
+
+    [Fact]
     public async Task Register_DuplicateUsername_ReturnsBadRequest()
     {
         var uid = UniqueId();
