@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import type { CreateRoomSettings } from "../api/rooms";
 
 interface Props {
@@ -25,16 +25,7 @@ export default function CreateRoomModal({ onConfirm, onCancel }: Props) {
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-      if (e.key === "Enter") handleSubmit();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
-
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (isPrivate && joinCode.trim() === "") {
       setError("join code is required for private rooms");
       return;
@@ -46,7 +37,16 @@ export default function CreateRoomModal({ onConfirm, onCancel }: Props) {
       abilitiesEnabled,
       joinCode: isPrivate ? joinCode.trim() : undefined,
     });
-  };
+  }, [isPrivate, joinCode, name, gridSize, maxPlayers, abilitiesEnabled, onConfirm]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+      if (e.key === "Enter") handleSubmit();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onCancel, handleSubmit]);
 
   return (
     <div style={styles.overlay} onClick={onCancel}>

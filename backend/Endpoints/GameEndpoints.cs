@@ -87,7 +87,7 @@ public static class GameEndpoints
                     name = r.Name,
                     playerCount = r.Players.Count,
                     maxPlayers = r.MaxPlayers,
-                    gridSize = r.GridWidth <= 100 ? "small" : r.GridWidth >= 300 ? "large" : "medium",
+                    gridSize = GridSizeLabel(r.GridWidth),
                     abilitiesEnabled = r.AbilitiesEnabled,
                     isPrivate = r.JoinCode != null
                 });
@@ -119,7 +119,7 @@ public static class GameEndpoints
                 name = room.Name,
                 playerCount = 0,
                 maxPlayers = room.MaxPlayers,
-                gridSize = room.GridWidth <= 100 ? "small" : room.GridWidth >= 300 ? "large" : "medium",
+                gridSize = GridSizeLabel(room.GridWidth),
                 abilitiesEnabled = room.AbilitiesEnabled,
                 isPrivate = room.JoinCode != null
             });
@@ -136,6 +136,8 @@ public static class GameEndpoints
         "large" => (300, 300),
         _ => (200, 200)
     };
+
+    private static string GridSizeLabel(int width) => width <= 100 ? "small" : width >= 300 ? "large" : "medium";
 }
 
 record CreateRoomRequest(string? Name, string? GridSize, int? MaxPlayers, bool? AbilitiesEnabled, string? JoinCode);
