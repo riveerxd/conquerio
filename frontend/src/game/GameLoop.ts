@@ -14,9 +14,9 @@ export class GameLoop {
   private cameraInitialized = false;
   private spectateTargetId: string | null = null;
 
-  constructor(canvas: HTMLCanvasElement, private network: NetworkClient, settings: GameSettings) {
+  constructor(canvas: HTMLCanvasElement, private network: NetworkClient, settings: GameSettings, isTouchDevice = false) {
     this.camera = new Camera();
-    this.renderer = new Renderer(canvas, this.camera, settings);
+    this.renderer = new Renderer(canvas, this.camera, settings, isTouchDevice);
     this.interpolator = new StateInterpolator(network);
   }
 
