@@ -24,9 +24,9 @@ export class Renderer {
     this.settings = initialSettings;
 
     this.boostImg = new Image();
-    this.boostImg.src = "/img/boost.png";
+    this.boostImg.src = "/img/boost.webp";
     this.shieldImg = new Image();
-    this.shieldImg.src = "/img/shield.png";
+    this.shieldImg.src = "/img/shield.webp";
   }
 
   setSettings(settings: GameSettings) {
