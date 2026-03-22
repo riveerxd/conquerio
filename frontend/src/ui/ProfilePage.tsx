@@ -35,6 +35,8 @@ export default function ProfilePage({ userId, onBack }: Props) {
                 {!stats && !error && <p style={styles.muted}>loading...</p>}
 
                 {stats && (
+                    <>
+                    <h2 style={styles.statsHeading}>stats</h2>
                     <div style={styles.grid}>
                         <StatRow label="elo" value={stats.elo} />
                         <StatRow label="games" value={stats.totalGames} />
@@ -46,6 +48,7 @@ export default function ProfilePage({ userId, onBack }: Props) {
                             value={`${stats.bestTerritoryPct.toFixed(1)}%`}
                         />
                     </div>
+                    </>
                 )}
 
                 <button style={styles.backButton} onClick={onBack}>
@@ -87,6 +90,14 @@ const styles: Record<string, React.CSSProperties> = {
         marginBottom: "32px",
         letterSpacing: "2px",
         fontWeight: "bold",
+    },
+    statsHeading: {
+        fontSize: "12px",
+        color: "#666",
+        letterSpacing: "2px",
+        textTransform: "uppercase",
+        marginBottom: "12px",
+        fontWeight: "normal",
     },
     grid: {
         display: "flex",
