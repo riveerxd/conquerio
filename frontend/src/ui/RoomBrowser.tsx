@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { getRooms, createRoom, type RoomInfo } from "../api/rooms";
+import {useEffect, useState} from "react";
+import {createRoom, getRooms, type RoomInfo} from "../api/rooms";
+import SettingsMenu from "./SettingsMenu";
 
 interface Props {
   token: string;
@@ -14,6 +15,7 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+    const [showSettings, setShowSettings] = useState(false);
 
   const fetchRooms = async () => {
     try {
@@ -87,6 +89,9 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
       {error && <div style={styles.error}>{error}</div>}
 
       <div style={styles.footer}>
+          <button style={styles.footerButton} onClick={() => setShowSettings(true)}>
+              settings
+          </button>
         <button style={styles.footerButton} onClick={onProfile}>
           my profile
         </button>
@@ -94,6 +99,10 @@ export default function RoomBrowser({ token, onJoinRoom, onQuickPlay, onProfile,
           logout
         </button>
       </div>
+
+        {showSettings && (
+            <SettingsMenu onBack={() => setShowSettings(false)}/>
+        )}
     </div>
   );
 }

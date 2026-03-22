@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {createContext, useContext, useEffect, useState} from 'react';
 
 export interface Keybinds {
   up: string;
@@ -63,7 +63,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [settings]);
 
   const updateSettings = (newSettings: Partial<GameSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
+      setSettings((prev) => {
+          const updated = {...prev, ...newSettings};
+          if (newSettings.keybinds) {
+              updated.keybinds = {...prev.keybinds, ...newSettings.keybinds};
+          }
+          return updated;
+      });
   };
 
   const resetSettings = () => {

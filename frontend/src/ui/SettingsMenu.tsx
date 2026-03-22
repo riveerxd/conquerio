@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useSettings, Keybinds, MinimapPosition } from './SettingsContext';
+import React, {useEffect, useState} from 'react';
+import {Keybinds, MinimapPosition, useSettings} from './SettingsContext';
 
 interface Props {
   onBack: () => void;
@@ -8,6 +8,7 @@ interface Props {
 export default function SettingsMenu({ onBack }: Props) {
   const { settings, updateSettings, resetSettings } = useSettings();
   const [capturing, setCapturing] = useState<keyof Keybinds | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!capturing) return;
@@ -19,12 +20,21 @@ export default function SettingsMenu({ onBack }: Props) {
       // Cancel capture with Escape, don't allow binding Escape as an action
       if (e.key === 'Escape') {
         setCapturing(null);
+          setError(null);
+          return;
+      }
+
+        // Check for conflicts
+        const conflict = Object.entries(settings.keybinds).find(([k, v]) => v === e.key && k !== capturing);
+        if (conflict) {
+            setError(`Key "${e.key === ' ' ? 'Space' : e.key}" is already bound to ${conflict[0]}`);
         return;
       }
-      
-      const newKeybinds = { ...settings.keybinds, [capturing]: e.key };
+
+        const newKeybinds = {[capturing]: e.key};
       updateSettings({ keybinds: newKeybinds });
       setCapturing(null);
+        setError(null);
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -37,7 +47,10 @@ export default function SettingsMenu({ onBack }: Props) {
       <div style={styles.keybindContainer}>
         <button
           style={{ ...styles.keyBtn, ...(capturing === key ? styles.capturing : {}) }}
-          onClick={() => setCapturing(key)}
+          onClick={() => {
+              setCapturing(key);
+              setError(null);
+          }}
           disabled={capturing !== null && capturing !== key}
         >
           {capturing === key ? 'Press any key... (ESC to cancel)' : settings.keybinds[key] === ' ' ? 'Space' : settings.keybinds[key]}
@@ -45,7 +58,10 @@ export default function SettingsMenu({ onBack }: Props) {
         {capturing === key && (
           <button
             style={styles.cancelBtn}
-            onClick={() => setCapturing(null)}
+            onClick={() => {
+                setCapturing(null);
+                setError(null);
+            }}
           >
             Cancel
           </button>
@@ -58,6 +74,8 @@ export default function SettingsMenu({ onBack }: Props) {
     <div style={styles.overlay} onClick={onBack}>
       <div style={styles.box} onClick={(e) => e.stopPropagation()}>
         <h2 style={styles.title}>settings</h2>
+
+          {error && <div style={styles.errorBanner}>{error}</div>}
 
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>controls</h3>
@@ -150,6 +168,15 @@ const styles: Record<string, React.CSSProperties> = {
   section: {
     marginBottom: "24px",
   },
+    errorBanner: {
+        background: "#ff4444",
+        color: "#fff",
+        padding: "8px",
+        fontSize: "12px",
+        marginBottom: "16px",
+        textAlign: "center",
+        borderRadius: "2px",
+    },
   sectionTitle: {
     fontSize: 14,
     color: "#888",
