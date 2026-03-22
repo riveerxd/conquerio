@@ -8,7 +8,7 @@ interface Props {
 export default function DeathScreen({ reason, killedBy, onRespawn, onProfile }: Props) {
   return (
       <div style={styles.overlay} role={"dialog"} aria-modal aria-labelledby="death-title">
-          <div style={styles.box} aria-modal>
+          <div style={styles.box}>
               <h2 id={"death-title"} style={styles.title}>you died</h2>
         <p style={styles.reason}>
           {killedBy ? `killed by ${killedBy}` : reason}
