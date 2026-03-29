@@ -98,7 +98,7 @@ export default function Leaderboard({ networkClient }: Props) {
                     colorId: p.colorId,
                     playerId: p.id,
                     territoryPct: pctMap.get(p.colorId) ?? 0,
-                    username: eloEntry?.username ?? null,
+                    username: p.username || eloEntry?.username || null,
                     elo: eloEntry?.elo ?? null,
                     rank: 0,
                 };
