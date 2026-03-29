@@ -49,7 +49,7 @@ export class Renderer {
     this.drawTrails(interpolatedPlayers, width, height);
     this.drawPlayers(interpolatedPlayers, state.myPlayerId, width, height);
     this.drawMinimap(state, interpolatedPlayers, width, height);
-    if (abilities) this.drawAbilities(width, height, abilities)
+    if (abilities && !this.isTouchDevice) this.drawAbilities(width, height, abilities)
   }
 
   private drawGrid(state: GameState, canvasW: number, canvasH: number) {
